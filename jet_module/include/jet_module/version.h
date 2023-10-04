@@ -1,0 +1,5 @@
+#pragma once
+
+#define JET_MODULE_MAJOR_VERSION    1u
+#define JET_MODULE_MINOR_VERSION    0u
+#define JET_MODULE_PATCH_VERSION    0u
