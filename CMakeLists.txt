@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 # set_cmake_folder_context(TARGET_FOLDER_NAME)
 
-project(jet-module VERSION 1.0)
+project(jet-module VERSION 1.0.0)
 
 option(IGNORE_INSTALLED_SDK "Build SDK internally even if found on system"          OFF)
 
@@ -14,7 +14,7 @@ add_subdirectory(lib/libopenDAQ)
 add_subdirectory(lib/pugixml)
 add_subdirectory(lib/jetPeerCpp)
 
-add_subdirectory(src)
+add_subdirectory(jet_module)
 
 add_executable(${PROJECT_NAME} main.cpp)
 
