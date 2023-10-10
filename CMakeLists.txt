@@ -1,30 +1,30 @@
 cmake_minimum_required(VERSION 3.24)
-# set_cmake_folder_context(TARGET_FOLDER_NAME)
 
-project(jet-module VERSION 1.0.0)
+project(JetModule 
+    VERSION 1.0.0 
+    DESCRIPTION "Library for using JetPeer alongside with openDAQ"
+    LANGUAGES C CXX)
 
-option(IGNORE_INSTALLED_SDK "Build SDK internally even if found on system"          OFF)
+##### Variables
+# set(OPENDAQ_REPO_PREFIX "git@github.com:blueberrydaq" CACHE STRING "Set this if using a repository mirror")
 
-set(OPENDAQ_REPO_PREFIX "git@github.com:blueberrydaq" CACHE STRING "Set this if using a repository mirror")
 
+##### Options
+option(IGNORE_INSTALLED_SDK "Build SDK internally even if found on system"                       OFF)
+option(COMPILE_REFERENCE_APPLICATION "Reference application is an example on how to use jetModule "  ON)
+
+
+#TODO move openDAQ into dependencies folder
 add_subdirectory(openDAQ-SDK)
 
-include(lib/jsoncpp/CMakeLists.txt)
-add_subdirectory(lib/libopenDAQ)
-add_subdirectory(lib/pugixml)
-add_subdirectory(lib/jetPeerCpp)
+# include(dependencies/jsoncpp/CMakeLists.txt)
+add_subdirectory(dependencies/jsoncpp)
+add_subdirectory(dependencies/libopenDAQ)
+add_subdirectory(dependencies/pugixml)
+add_subdirectory(dependencies/jetPeerCpp)
 
-add_subdirectory(jet_module)
+add_subdirectory(src)
+add_subdirectory(app)
 
-add_executable(${PROJECT_NAME} main.cpp)
 
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    CXX_STANDARD            17
-    CXX_STANDARD_REQUIRED   ON
-)
-
-target_link_libraries(${PROJECT_NAME}
-    PUBLIC
-        daq::opendaq)
-
-install(TARGETS ${PROJECT_NAME})
+# install(TARGETS ${PROJECT_NAME})

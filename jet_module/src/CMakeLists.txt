@@ -11,8 +11,10 @@ set(SRC_Srcs module_dll.cpp
 )
 
 prepend_include(jet_module SRC_Include)
-get_filename_component(CURRENT_FOLDER_NAME ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
-get_filename_component(CURRENT_FOLDER_NAME ${CURRENT_FOLDER_NAME} NAME)
+# get_filename_component(CURRENT_FOLDER_NAME ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
+# get_filename_component(CURRENT_FOLDER_NAME ${CURRENT_FOLDER_NAME} NAME)
+
+message(WARNING "MODULE_HEADERS_DIR=${MODULE_HEADERS_DIR}")
 
 source_group("module" FILES ${MODULE_HEADERS_DIR}/jet_module_impl.h
                             ${MODULE_HEADERS_DIR}/module_dll.h
@@ -28,6 +30,8 @@ add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 
 target_link_libraries(${LIB_NAME} PUBLIC  daq::opendaq)
 
+
+message(WARNING "CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
                                               $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include>
                                               $<INSTALL_INTERFACE:include>
