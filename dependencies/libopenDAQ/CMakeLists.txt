@@ -14,6 +14,7 @@ if(NOT daq_FOUND)
         GIT_REPOSITORY          "${OPENDAQ_REPO_PREFIX}/libopenDAQ.git"
         GIT_TAG				    v${daq_REQUIREDVERSION}
         GIT_SHALLOW             TRUE
+        SOURCE_DIR			${CMAKE_CURRENT_SOURCE_DIR}/src
         OVERRIDE_FIND_PACKAGE
     )
 

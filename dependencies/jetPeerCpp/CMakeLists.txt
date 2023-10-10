@@ -13,6 +13,7 @@ if(NOT jetpeer_FOUND OR NOT jetpeerasync_FOUND)
         GIT_REPOSITORY  "${OPENDAQ_REPO_PREFIX}/jetPeerCpp.git"
 	    GIT_TAG			v${jetPeerCpp_REQUIREDVERSION}
         GIT_SHALLOW     TRUE
+        SOURCE_DIR		${CMAKE_CURRENT_SOURCE_DIR}/src
     )
 
     FetchContent_MakeAvailable(jetPeerCpp)
