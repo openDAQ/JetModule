@@ -1,8 +1,6 @@
-#include <jet_module/module_dll.h>
-#include <jet_module/jet_module_impl.h>
-
-#include <opendaq/module_check_dependencies.h>
+#include "module_dll.h"
 #include <opendaq/module_factory.h>
+#include "jet_module_impl.h"
 
 using namespace daq::modules::jet_module;
 

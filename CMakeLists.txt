@@ -6,11 +6,11 @@ project(jetModule
     LANGUAGES C CXX)
 
 ##### Variables
-# set(OPENDAQ_REPO_PREFIX "git@github.com:blueberrydaq" CACHE STRING "Set this if using a repository mirror")
+set(OPENDAQ_REPO_PREFIX "git@github.com:blueberrydaq" CACHE STRING "Set this if using a repository mirror")
 
 
 ##### Options
-option(IGNORE_INSTALLED_SDK "Build SDK internally even if found on system"                       ON)
+option(IGNORE_INSTALLED_SDK "Build SDK internally even if found on system"                       OFF)
 option(COMPILE_REFERENCE_APPLICATION "Reference application is an example on how to use jetModule "  OFF)
 
 ##### Dependencies
@@ -21,7 +21,8 @@ add_subdirectory(dependencies/pugixml)
 add_subdirectory(dependencies/jetPeerCpp)
 
 add_subdirectory(src)
-add_subdirectory(app)
-
+if(COMPILE_REFERENCE_APPLICATION)
+    add_subdirectory(app)
+endif()
 
 # install(TARGETS ${PROJECT_NAME})

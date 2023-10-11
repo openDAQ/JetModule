@@ -1,7 +1,7 @@
-#include <print_hello.h>
+// #include <print_hello.h>
 
 int main() {
 
-    print_hello();
+    // print_hello();
     return 0;
 }

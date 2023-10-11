@@ -1,4 +1,4 @@
-#include <jet_module/jet.h>
+#include "jet.h"
 
 // BEGIN_NAMESPACE_JET_MODULE
 

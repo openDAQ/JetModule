@@ -1,20 +1,17 @@
 #pragma once
-#include <jet_module/common.h>
 #include <opendaq/module_impl.h>
-#include <iostream>
+
+#include "common.h"
 
 BEGIN_NAMESPACE_JET_MODULE
 
 class JetModule final : public Module
 {
 public:
-    JetModule(ContextPtr context);
-
-    // DictPtr<IString, IServerType> onGetAvailableServerTypes() override;
-    // ServerPtr onCreateServer(StringPtr serverType, PropertyObjectPtr serverConfig, DevicePtr rootDevice) override;
+    explicit JetModule(ContextPtr context);
 
 private:
-    std::mutex sync;
+
 };
 
 
