@@ -40,18 +40,46 @@ void JetServer::getChannelProperties()
 
 void JetServer::createJsonProperties(PropertyObjectPtr propertyObject)
 {
+    ConstCharPtr propertyObjectType = propertyObject.asPtr<ISerializable>().getSerializeId();
     auto properties = propertyObject.getAllProperties();
     for(auto property : properties) {
         bool isSelectionProperty = determineSelectionProperty(property);
         std::string propertyName = property.getName();
         if(isSelectionProperty) {
             std::string propertyValue = propertyObject.getPropertySelectionValue(toStdString(property.getName().toString()));
-            appendJsonValue<std::string>(propertyObject.asPtr<ISerializable>().getSerializeId(), propertyName, propertyValue);
+            appendJsonValue<std::string>(propertyObjectType, propertyName, propertyValue);
         }
         else {
-            // CoreType propertyType = determinePropertyType(property);
-            std::string propertyValue = propertyObject.getPropertyValue(property.getName());
-            appendJsonValue<std::string>(propertyObject.asPtr<ISerializable>().getSerializeId(), propertyName, propertyValue);
+            bool propertyValueBool;
+            int64_t propertyValueInt;
+            _Float64 propertyValueFloat;
+            StringPtr propertyValueString;
+            
+            CoreType propertyType = determinePropertyType(property);
+            switch(propertyType) {
+                case CoreType::ctBool:
+                    propertyValueBool = propertyObject.getPropertyValue(property.getName());
+                    appendJsonValue<bool>(propertyObjectType, propertyName, propertyValueBool);
+                    break;
+                case CoreType::ctInt:
+                    propertyValueInt = propertyObject.getPropertyValue(property.getName());
+                    appendJsonValue<int64_t>(propertyObjectType, propertyName, propertyValueInt);
+                    break;
+                case CoreType::ctFloat:
+                    propertyValueFloat = propertyObject.getPropertyValue(property.getName());
+                    appendJsonValue<_Float64>(propertyObjectType, propertyName, propertyValueFloat);
+                    break;
+                case CoreType::ctString:
+                    propertyValueString = propertyObject.getPropertyValue(property.getName());
+                    appendJsonValue<std::string>(propertyObjectType, propertyName, toStdString(propertyValueString));
+                    break;
+                default:
+                    std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
+                    std::cout << "\"std::string\" will be used to store property value." << std::endl;
+                    auto propertyValue = propertyObject.getPropertyValue(property.getName());
+                    appendJsonValue<std::string>(propertyObjectType, propertyName, propertyValue);
+                    break;
+            }
         }
     }
 }
