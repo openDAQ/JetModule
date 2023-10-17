@@ -19,8 +19,7 @@ int main() {
     auto device = instance.getRootDevice();
 
     JetServer myJet = JetServer(device);
-
-    myJet.printSomething();
+    myJet.publishJetState();
     
     std::cout << "Press \"enter\" to exit the application..." << std::endl;
     std::cin.get();

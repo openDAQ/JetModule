@@ -7,7 +7,6 @@ BEGIN_NAMESPACE_JET_MODULE
 JetServer::JetServer(DevicePtr device)
 {
     this->device = device;
-    deviceName = toStdString(device.getName());
     jetPeer = new daq::jet::PeerAsync(jet_eventloop, daq::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
     auto cb = [&](const Json::Value& value, std::string path) {
         std::cout << "Want to change state with path: " << path << " with the value " << value.toStyledString() << std::endl;
@@ -16,131 +15,57 @@ JetServer::JetServer(DevicePtr device)
     jetPeer->addStateAsync(jetStatePath, jsonValue, daq::jet::responseCallback_t(), cb);
 }
 
-void JetServer::deviceLoop()
+void JetServer::publishJetState()
 {
     getDeviceProperties();
     getChannelProperties();
 
     jetPeer->notifyState(jetStatePath, jsonValue);
-
-    // for(int i = 0; i < 20; i++) {
-    //     std::string myString = std::to_string(i);
-    //     jsonValue[deviceName][myString] = "skibidipipihahahahazzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz";
-    //     jetPeer->notifyState(jetStatePath, jsonValue);
-    // }
 }
 
 void JetServer::getDeviceProperties()
 {
-    auto properties = device.getAllProperties();
-    for(auto property : properties) {
-        bool isSelectionProperty = determineSelectionProperty(property);
-        std::string propertyName = property.getName();
-        if(isSelectionProperty) {
-            std::string propertyValue = device.getPropertySelectionValue(toStdString(property.getName().toString()));
-            jsonValue[deviceName][propertyName] = propertyValue;
-            // std::cout << "Property: " << property.getName();
-            // std::cout << " " << isSelectionProperty << std::endl;
-        }
-        else {
-            CoreType propertyType = determinePropertyType(property);
-            std::string propertyValue = device.getPropertyValue(property.getName());
-            jsonValue[deviceName][propertyName] = propertyValue;
-            // std::cout << "Property: " << property.getName();
-            // std::cout << " " << isSelectionProperty << "   " << propertyType << std::endl;
-        }
-        // jetPeer->notifyState(jetStatePath, jsonValue);
-    }
-    // jetPeer->notifyState(jetStatePath, jsonValue);
+    deviceName = toStdString(device.getName());
+    createJsonProperties(device);
 }
 
 void JetServer::getChannelProperties()
 {
     auto channels = device.getChannels();
     for(auto channel : channels) {
-        auto channelProperties = channel.getAllProperties();
-        std::string channelName = channel.getName();
-        // std::cout << std::endl << "Channel: " << channel.getName() << std::endl;
-        for(auto property : channelProperties) {
-            bool isSelectionProperty = determineSelectionProperty(property);
-            std::string propertyName = property.getName();
-            if(isSelectionProperty) {
-                std::string propertyValue = channel.getPropertySelectionValue(toStdString(property.getName().toString()));
-                jsonValue[deviceName][channelName][propertyName] = propertyValue;
-                // std::cout << "Property: " << property.getName();
-                // std::cout << " " << isSelectionProperty << std::endl;
-                // std::cout << "ValueType: " << property.getValueType() << std::endl;
-            }
-            else {
-                std::string propertyValue = channel.getPropertyValue(toStdString(property.getName().toString()));
-                if(property.getValueType() == 0 || property.getValueType() == 2)
-                    jsonValue[deviceName][channelName][propertyName] = propertyValue;
-                // std::cout << "Property: " << property.getName();
-                // std::cout << " " << isSelectionProperty << std::endl;
-                // std::cout << "ValueType: " << property.getValueType() << std::endl;
-            }
-            // jetPeer->notifyState(jetStatePath, jsonValue);
-        }
+        channelName = toStdString(channel.getName());
+        createJsonProperties(channel);
     }
-    // jetPeer->notifyState(jetStatePath, jsonValue);
 }
 
-void JetServer::printSomething()
+void JetServer::createJsonProperties(PropertyObjectPtr propertyObject)
 {
-    deviceLoop();
-}
-
-void JetServer::publishJetState()
-{
-    daq::jet::PeerAsync jetPeer(jet_eventloop, daq::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
-
-    auto cb = [&](const Json::Value& value, std::string path) {
-        std::cout << "Want to change state with path: " << path << " with the value " << value.toStyledString() << std::endl;
-        return value;
-    };
-
-    Json::Value jetState;
-    jetPeer.addStateAsync(jetStatePath, jetState, daq::jet::responseCallback_t(), cb);
-
-
-    std::string deviceName = device.getName();
-    auto properties = device.getAllProperties();
+    auto properties = propertyObject.getAllProperties();
     for(auto property : properties) {
+        bool isSelectionProperty = determineSelectionProperty(property);
         std::string propertyName = property.getName();
-        auto propertyValue = device.getPropertyValue(propertyName);
-        jetState[deviceName][propertyName] = toStdString(propertyValue.toString());
-    }
-
-    std::vector<std::string> myVec = {"channel1", "channel2"};
-    std::string name = myVec[0];
-    auto channels = device.getChannels();
-    for(auto channel : channels) {
-        std::string channelName = channel.getName();
-        std::cout << channelName << std::endl;
-        auto channelProperties = channel.getAllProperties();
-        std::cout << channelProperties.getCount() << std::endl;
-
-        // jetState[deviceName].append()
-
-        for(auto property : channelProperties) {
-            std::string propertyName = property.getName();
-            // if(propertyName == "DC")
-            //     break;
-            std::cout << propertyName << " " << property.getValueType() << " ";
-            auto k = property.getSelectionValues().assigned();
-            std::cout << "\n---- property.getSelectionValues().assigned() = " << property.getSelectionValues().assigned() << std::endl;
-            auto propertyValue = channel.getPropertyValue(propertyName);
-            jetState[deviceName][name][propertyName] = toStdString(propertyValue.toString());
-            std::cout << name << std::endl;
+        if(isSelectionProperty) {
+            std::string propertyValue = propertyObject.getPropertySelectionValue(toStdString(property.getName().toString()));
+            appendJsonValue<std::string>(propertyObject.asPtr<ISerializable>().getSerializeId(), propertyName, propertyValue);
         }
-        name = myVec[1];
-        std::cout << std::endl;
+        else {
+            // CoreType propertyType = determinePropertyType(property);
+            std::string propertyValue = propertyObject.getPropertyValue(property.getName());
+            appendJsonValue<std::string>(propertyObject.asPtr<ISerializable>().getSerializeId(), propertyName, propertyValue);
+        }
     }
-    
-    jetPeer.notifyState(jetStatePath, jetState);
-
 }
 
+template <typename ValueType>
+void JetServer::appendJsonValue(ConstCharPtr propertyObjectType, std::string propertyName, ValueType value)
+{
+    if(strcmp(propertyObjectType, "Device") == 0) {
+        jsonValue[deviceName][propertyName] = value;
+    }
+    else if(strcmp(propertyObjectType, "Channel") == 0) {
+        jsonValue[deviceName][channelName][propertyName] = value;
+    }
+}
 
 bool JetServer::determineSelectionProperty(PropertyPtr property)
 {

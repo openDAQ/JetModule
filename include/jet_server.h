@@ -17,11 +17,12 @@ public:
 
     explicit JetServer(DevicePtr device);
     void publishJetState();
-    void printSomething();
 private:
-    void deviceLoop();
     void getDeviceProperties();
     void getChannelProperties();
+    void createJsonProperties(PropertyObjectPtr propertyObject);
+    template <typename ValueType>
+    void appendJsonValue(ConstCharPtr propertyObjectType, std::string propertyName, ValueType value);
     void getFunctionBlockProperties();
 
     bool determineSelectionProperty(PropertyPtr property);
@@ -29,6 +30,7 @@ private:
 
     DevicePtr device;
     std::string deviceName;
+    std::string channelName;
 
     Json::Value jsonValue;
     daq::sys::EventLoop jet_eventloop; 
