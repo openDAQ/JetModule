@@ -6,7 +6,7 @@ set(SRC_Include
     common.h
     module_dll.h
     jet_module_impl.h
-    # jet.h
+    jet_server.h
     version.h
 )
 
@@ -14,7 +14,7 @@ set(SRC_Include
 set(SRC_Srcs 
     module_dll.cpp
     jet_module_impl.cpp
-    # jet.cpp
+    jet_server.cpp
 )
 
 # Prepend path to header files
@@ -36,7 +36,7 @@ add_library(${LIB_NAME} SHARED
 )
 add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 target_include_directories(${LIB_NAME} PUBLIC ${MODULE_HEADERS_DIR})
-target_link_libraries(${LIB_NAME} PUBLIC daq::opendaq)
+target_link_libraries(${LIB_NAME} PUBLIC daq::opendaq daq jetpeer jetpeerasync jsoncpp_lib pugixml)
 
 target_compile_definitions(${LIB_NAME} PUBLIC OPENDAQ_THREAD_SAFE)
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
