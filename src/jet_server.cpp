@@ -6,7 +6,7 @@ BEGIN_NAMESPACE_JET_MODULE
 
 JetServer::JetServer(DevicePtr device)
 {
-    this->device = device;
+    this->rootDevice = device;
     jetPeer = new daq::jet::PeerAsync(jet_eventloop, daq::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
     auto cb = [&](const Json::Value& value, std::string path) {
         std::cout << "Want to change state with path: " << path << " with the value " << value.toStyledString() << std::endl;
@@ -17,37 +17,67 @@ JetServer::JetServer(DevicePtr device)
 
 void JetServer::publishJetState()
 {
-    getDeviceProperties();
-    getChannelProperties();
+    parseRootDeviceProperties();
+    parseDeviceProperties();
+    parseChannelProperties();
+    parseFunctionBlockProperties();
+    parseCustomComponentProperties();
 
     jetPeer->notifyState(jetStatePath, jsonValue);
 }
 
-void JetServer::getDeviceProperties()
+void JetServer::parseRootDeviceProperties()
 {
-    deviceName = toStdString(device.getName());
-    createJsonProperties(device);
+    rootDeviceName = toStdString(rootDevice.getName());
+    createJsonProperties(rootDevice, rootDeviceType);
 }
 
-void JetServer::getChannelProperties()
+void JetServer::parseDeviceProperties()
 {
-    auto channels = device.getChannels();
-    for(auto channel : channels) {
-        channelName = toStdString(channel.getName());
-        createJsonProperties(channel);
+    auto devices = rootDevice.getDevices();
+    for(auto device : devices) {
+        deviceName = toStdString(device.getName());
+        createJsonProperties(device, deviceType);   
     }
 }
 
-void JetServer::createJsonProperties(PropertyObjectPtr propertyObject)
+void JetServer::parseChannelProperties()
 {
-    ConstCharPtr propertyObjectType = propertyObject.asPtr<ISerializable>().getSerializeId();
+    auto channels = rootDevice.getChannels();
+    for(auto channel : channels) {
+        channelName = toStdString(channel.getName());
+        createJsonProperties(channel, channelType);
+    }
+}
+
+void JetServer::parseFunctionBlockProperties()
+{
+    auto functionBlocks = rootDevice.getFunctionBlocks();
+    for(auto fb : functionBlocks) {
+        functionBlockName = toStdString(fb.getName());
+        createJsonProperties(fb, functionBlockType);
+    }
+}
+
+void JetServer::parseCustomComponentProperties()
+{
+    auto customComponents = rootDevice.getCustomComponents();
+    for(auto customComponent : customComponents) {
+        customComponentName = toStdString(customComponent.getName());
+        createJsonProperties(customComponent, customComponentType);
+    }
+}
+
+void JetServer::createJsonProperties(PropertyObjectPtr propertyObject, ConstCharPtr objectType)
+{
+    // ConstCharPtr propertyObjectType = propertyObject.asPtr<ISerializable>().getSerializeId();
     auto properties = propertyObject.getAllProperties();
     for(auto property : properties) {
         bool isSelectionProperty = determineSelectionProperty(property);
         std::string propertyName = property.getName();
         if(isSelectionProperty) {
             std::string propertyValue = propertyObject.getPropertySelectionValue(toStdString(property.getName().toString()));
-            appendJsonValue<std::string>(propertyObjectType, propertyName, propertyValue);
+            appendJsonValue<std::string>(objectType, propertyName, propertyValue);
         }
         else {
             bool propertyValueBool;
@@ -59,25 +89,25 @@ void JetServer::createJsonProperties(PropertyObjectPtr propertyObject)
             switch(propertyType) {
                 case CoreType::ctBool:
                     propertyValueBool = propertyObject.getPropertyValue(property.getName());
-                    appendJsonValue<bool>(propertyObjectType, propertyName, propertyValueBool);
+                    appendJsonValue<bool>(objectType, propertyName, propertyValueBool);
                     break;
                 case CoreType::ctInt:
                     propertyValueInt = propertyObject.getPropertyValue(property.getName());
-                    appendJsonValue<int64_t>(propertyObjectType, propertyName, propertyValueInt);
+                    appendJsonValue<int64_t>(objectType, propertyName, propertyValueInt);
                     break;
                 case CoreType::ctFloat:
                     propertyValueFloat = propertyObject.getPropertyValue(property.getName());
-                    appendJsonValue<_Float64>(propertyObjectType, propertyName, propertyValueFloat);
+                    appendJsonValue<_Float64>(objectType, propertyName, propertyValueFloat);
                     break;
                 case CoreType::ctString:
                     propertyValueString = propertyObject.getPropertyValue(property.getName());
-                    appendJsonValue<std::string>(propertyObjectType, propertyName, toStdString(propertyValueString));
+                    appendJsonValue<std::string>(objectType, propertyName, toStdString(propertyValueString));
                     break;
                 default:
                     std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
                     std::cout << "\"std::string\" will be used to store property value." << std::endl;
                     auto propertyValue = propertyObject.getPropertyValue(property.getName());
-                    appendJsonValue<std::string>(propertyObjectType, propertyName, propertyValue);
+                    appendJsonValue<std::string>(objectType, propertyName, propertyValue);
                     break;
             }
         }
@@ -85,13 +115,22 @@ void JetServer::createJsonProperties(PropertyObjectPtr propertyObject)
 }
 
 template <typename ValueType>
-void JetServer::appendJsonValue(ConstCharPtr propertyObjectType, std::string propertyName, ValueType value)
+void JetServer::appendJsonValue(ConstCharPtr objectType, std::string propertyName, ValueType value)
 {
-    if(strcmp(propertyObjectType, "Device") == 0) {
-        jsonValue[deviceName][propertyName] = value;
+    if(strcmp(objectType, rootDeviceType) == 0) {
+        jsonValue[rootDeviceName][propertyName] = value;
     }
-    else if(strcmp(propertyObjectType, "Channel") == 0) {
-        jsonValue[deviceName][channelName][propertyName] = value;
+    else if(strcmp(objectType, deviceType) == 0) {
+        jsonValue[rootDeviceName][deviceName][propertyName] = value;
+    }
+    else if(strcmp(objectType, channelType) == 0) {
+        jsonValue[rootDeviceName][channelName][propertyName] = value;
+    }
+    else if(strcmp(objectType, functionBlockType) == 0) {
+        jsonValue[rootDeviceName][functionBlockName][propertyName] = value;
+    }
+    else if(strcmp(objectType, customComponentType) == 0) {
+        jsonValue[rootDeviceName][customComponentName][propertyName] = value;
     }
 }
 

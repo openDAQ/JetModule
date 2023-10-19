@@ -14,23 +14,34 @@ class JetServer
 {
 public:
     static constexpr char jetStatePath[] = "/daq/jetModule";
+    static constexpr char rootDeviceType[] = "Root Device";
+    static constexpr char deviceType[] = "Device";
+    static constexpr char channelType[] = "Channel";
+    static constexpr char functionBlockType[] = "Function Block";
+    static constexpr char customComponentType[] = "Custom Component";
 
     explicit JetServer(DevicePtr device);
     void publishJetState();
 private:
-    void getDeviceProperties();
-    void getChannelProperties();
-    void createJsonProperties(PropertyObjectPtr propertyObject);
+    void parseRootDeviceProperties();
+    void parseDeviceProperties();
+    void parseChannelProperties();
+    void parseFunctionBlockProperties();
+    void parseCustomComponentProperties();
+
+    void createJsonProperties(PropertyObjectPtr propertyObject, ConstCharPtr objectType);
     template <typename ValueType>
-    void appendJsonValue(ConstCharPtr propertyObjectType, std::string propertyName, ValueType value);
-    void getFunctionBlockProperties();
+    void appendJsonValue(ConstCharPtr objectType, std::string propertyName, ValueType value);
 
     bool determineSelectionProperty(PropertyPtr property);
     CoreType determinePropertyType(PropertyPtr property);
 
-    DevicePtr device;
+    DevicePtr rootDevice;
+    std::string rootDeviceName;
     std::string deviceName;
     std::string channelName;
+    std::string functionBlockName;
+    std::string customComponentName;
 
     Json::Value jsonValue;
     daq::sys::EventLoop jet_eventloop; 
