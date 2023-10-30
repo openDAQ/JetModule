@@ -32,88 +32,33 @@ void JetServer::updateJetState(ComponentPtr component, std::string &propertyName
     jsonValue.clear();
 }
 
-void JetServer::publishJetState()
+void JetServer::publishJetStates()
 {
-    parseRootDeviceProperties();
-    parseDeviceProperties();
-    parseChannelProperties();
-    parseFunctionBlockProperties();
-    parseCustomComponentProperties();
-    parseSignalProperties();
+    createComponentJetState(rootDevice);
+    auto devices = rootDevice.getDevices();
+    createComponentListJetStates(devices);
+    auto channels = rootDevice.getChannels();
+    createComponentListJetStates(channels);
+    auto functionBlocks = rootDevice.getFunctionBlocks();
+    createComponentListJetStates(functionBlocks);
+    auto customComponents = rootDevice.getCustomComponents();
+    createComponentListJetStates(customComponents);
+    auto signals = rootDevice.getSignals();
+    createComponentListJetStates(signals);
 }
 
-void JetServer::parseRootDeviceProperties()
+void JetServer::createComponentJetState(const ComponentPtr& component)
 {
-    rootDeviceName = toStdString(rootDevice.getName());
-    createJsonProperties(rootDevice);
-    
-    std::string globalId = rootDevice.getGlobalId();
+    createJsonProperties(component);   
+    std::string globalId = component.getGlobalId();
     std::string path = jetStatePath + globalId;
     addJetState(path);
-}
+}   
 
-void JetServer::parseDeviceProperties()
+void JetServer::createComponentListJetStates(const ListPtr<ComponentPtr>& componentList)
 {
-    auto devices = rootDevice.getDevices();
-    for(auto device : devices) {
-        deviceName = toStdString(device.getName());
-        createJsonProperties(device);   
-
-        std::string globalId = device.getGlobalId();
-        std::string path = jetStatePath + globalId;
-        addJetState(path);
-    }
-}
-
-void JetServer::parseChannelProperties()
-{
-    auto channels = rootDevice.getChannels();
-    for(auto channel : channels) {
-        channelName = toStdString(channel.getName());
-        createJsonProperties(channel);
-
-        std::string globalId = channel.getGlobalId();
-        std::string path = jetStatePath + globalId;
-        addJetState(path);
-    }
-}
-
-void JetServer::parseFunctionBlockProperties()
-{
-    auto functionBlocks = rootDevice.getFunctionBlocks();
-    for(auto fb : functionBlocks) {
-        functionBlockName = toStdString(fb.getName());
-        createJsonProperties(fb);
-
-        std::string globalId = fb.getGlobalId();
-        std::string path = jetStatePath + globalId;
-        addJetState(path);
-    }
-}
-
-void JetServer::parseCustomComponentProperties()
-{
-    auto customComponents = rootDevice.getCustomComponents();
-    for(auto customComponent : customComponents) {
-        customComponentName = toStdString(customComponent.getName());
-        createJsonProperties(customComponent);
-
-        std::string globalId = customComponent.getGlobalId();
-        std::string path = jetStatePath + globalId;
-        addJetState(path);
-    }
-}
-
-void JetServer::parseSignalProperties()
-{
-    auto signals = rootDevice.getSignals();
-    for(auto signal : signals) {
-        signalName = toStdString(signal.getName());
-        createJsonProperties(signal);
-
-        std::string globalId = signal.getGlobalId();
-        std::string path = jetStatePath + globalId;
-        addJetState(path);
+    for(auto component : componentList) {
+        createComponentJetState(component);
     }
 }
 

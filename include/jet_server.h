@@ -18,15 +18,12 @@ public:
     static constexpr char typeString[] = "_type";
 
     explicit JetServer(DevicePtr device);
-    void publishJetState();
+    void publishJetStates();
     void updateJetState(ComponentPtr component, std::string &propertyName);
+    
 private:
-    void parseRootDeviceProperties();
-    void parseDeviceProperties();
-    void parseChannelProperties();
-    void parseFunctionBlockProperties();
-    void parseCustomComponentProperties();
-    void parseSignalProperties();
+    void createComponentJetState(const ComponentPtr& component);
+    void createComponentListJetStates(const ListPtr<ComponentPtr>& componentList);
 
     void createJsonProperty(ComponentPtr component, PropertyPtr property);
     void createJsonProperties(ComponentPtr component);
