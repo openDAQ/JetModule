@@ -7,6 +7,7 @@ project(jetModule
 
 ##### Variables
 set(OPENDAQ_REPO_PREFIX "git@github.com:blueberrydaq" CACHE STRING "Set this if using a repository mirror")
+set(OPEN_SOURCE_OPENDAQ_REPO_PREFIX "git@github.com:openDAQ" CACHE STRING "Set this if using a repository mirror")
 
 
 ##### Options
