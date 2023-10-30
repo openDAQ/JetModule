@@ -4,13 +4,13 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
-JetServer::JetServer(DevicePtr device)
+JetServer::JetServer(const DevicePtr& device)
 {
     this->rootDevice = device;
     jetPeer = new daq::jet::PeerAsync(jet_eventloop, daq::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
 }
 
-void JetServer::addJetState(std::string &path)
+void JetServer::addJetState(const std::string& path)
 {
     auto cb = [&](const Json::Value& value, std::string path) {
         std::cout << "Want to change state with path: " << path << " with the value " << value.toStyledString() << std::endl;
@@ -20,7 +20,7 @@ void JetServer::addJetState(std::string &path)
     jsonValue.clear();
 }
 
-void JetServer::updateJetState(ComponentPtr component, std::string &propertyName)
+void JetServer::updateJetState(const ComponentPtr& component, const std::string& propertyName)
 {
     std::string globalId = component.getGlobalId();
     std::string path = jetStatePath + globalId;
@@ -62,7 +62,7 @@ void JetServer::createComponentListJetStates(const ListPtr<ComponentPtr>& compon
     }
 }
 
-void JetServer::createJsonProperty(ComponentPtr component, PropertyPtr property)
+void JetServer::createJsonProperty(const ComponentPtr& component, const PropertyPtr& property)
 {
     bool isSelectionProperty = determineSelectionProperty(property);
     std::string propertyName = property.getName();
@@ -104,7 +104,7 @@ void JetServer::createJsonProperty(ComponentPtr component, PropertyPtr property)
     }
 }
 
-void JetServer::createJsonProperties(ComponentPtr component)
+void JetServer::createJsonProperties(const ComponentPtr& component)
 {
     auto properties = component.getAllProperties();
     for(auto property : properties) {
@@ -113,7 +113,7 @@ void JetServer::createJsonProperties(ComponentPtr component)
 }
 
 template <typename ValueType>
-void JetServer::appendJsonValue(ComponentPtr component, std::string propertyName, ValueType value)
+void JetServer::appendJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value)
 {
     std::string componentName = toStdString(component.getName());
     std::string globalId = toStdString(component.getGlobalId());
@@ -124,7 +124,7 @@ void JetServer::appendJsonValue(ComponentPtr component, std::string propertyName
     jsonValue[componentName][globalIdString] = globalId;
 }
 
-bool JetServer::determineSelectionProperty(PropertyPtr property)
+bool JetServer::determineSelectionProperty(const PropertyPtr& property)
 {
     return property.getSelectionValues().assigned() ? true : false;
 }

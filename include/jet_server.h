@@ -17,21 +17,21 @@ public:
     static constexpr char globalIdString[] = "Global ID";
     static constexpr char typeString[] = "_type";
 
-    explicit JetServer(DevicePtr device);
+    explicit JetServer(const DevicePtr& device);
     void publishJetStates();
-    void updateJetState(ComponentPtr component, std::string &propertyName);
-    
+    void updateJetState(const ComponentPtr& component, const std::string& propertyName);
+
 private:
     void createComponentJetState(const ComponentPtr& component);
     void createComponentListJetStates(const ListPtr<ComponentPtr>& componentList);
 
-    void createJsonProperty(ComponentPtr component, PropertyPtr property);
-    void createJsonProperties(ComponentPtr component);
+    void createJsonProperty(const ComponentPtr& component, const PropertyPtr& property);
+    void createJsonProperties(const ComponentPtr& component);
     template <typename ValueType>
-    void appendJsonValue(ComponentPtr component, std::string propertyName, ValueType value);
-    void addJetState(std::string &path);
+    void appendJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);
+    void addJetState(const std::string& path);
 
-    bool determineSelectionProperty(PropertyPtr property);
+    bool determineSelectionProperty(const PropertyPtr& property);
 
     DevicePtr rootDevice;
     std::string rootDeviceName;
