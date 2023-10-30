@@ -20,14 +20,12 @@ void JetServer::addJetState(const std::string& path)
     jsonValue.clear();
 }
 
-void JetServer::updateJetState(const ComponentPtr& component, const std::string& propertyName)
+void JetServer::updateJetState(const ComponentPtr& component)
 {
-    std::string globalId = component.getGlobalId();
-    std::string path = jetStatePath + globalId;
+    createJsonProperties(component);   
+    appendMetadataToJsonValue(component);
 
-    auto property = component.getProperty(propertyName);
-    createJsonProperty(component, property);
-
+    std::string path = jetStatePath + component.getGlobalId();
     jetPeer->notifyState(path, jsonValue);
     jsonValue.clear();
 }
@@ -50,8 +48,8 @@ void JetServer::publishJetStates()
 void JetServer::createComponentJetState(const ComponentPtr& component)
 {
     createJsonProperties(component);   
-    std::string globalId = component.getGlobalId();
-    std::string path = jetStatePath + globalId;
+    appendMetadataToJsonValue(component);
+    std::string path = jetStatePath + component.getGlobalId();
     addJetState(path);
 }   
 
@@ -68,7 +66,7 @@ void JetServer::createJsonProperty(const ComponentPtr& component, const Property
     std::string propertyName = property.getName();
     if(isSelectionProperty) {
         std::string propertyValue = component.getPropertySelectionValue(toStdString(property.getName().toString()));
-        appendJsonValue<std::string>(component, propertyName, propertyValue);
+        appendPropertyToJsonValue<std::string>(component, propertyName, propertyValue);
     }
     else {
         bool propertyValueBool;
@@ -80,25 +78,25 @@ void JetServer::createJsonProperty(const ComponentPtr& component, const Property
         switch(propertyType) {
             case CoreType::ctBool:
                 propertyValueBool = component.getPropertyValue(property.getName());
-                appendJsonValue<bool>(component, propertyName, propertyValueBool);
+                appendPropertyToJsonValue<bool>(component, propertyName, propertyValueBool);
                 break;
             case CoreType::ctInt:
                 propertyValueInt = component.getPropertyValue(property.getName());
-                appendJsonValue<int64_t>(component, propertyName, propertyValueInt);
+                appendPropertyToJsonValue<int64_t>(component, propertyName, propertyValueInt);
                 break;
             case CoreType::ctFloat:
                 propertyValueFloat = component.getPropertyValue(property.getName());
-                appendJsonValue<_Float64>(component, propertyName, propertyValueFloat);
+                appendPropertyToJsonValue<_Float64>(component, propertyName, propertyValueFloat);
                 break;
             case CoreType::ctString:
                 propertyValueString = component.getPropertyValue(property.getName());
-                appendJsonValue<std::string>(component, propertyName, toStdString(propertyValueString));
+                appendPropertyToJsonValue<std::string>(component, propertyName, toStdString(propertyValueString));
                 break;
             default:
                 std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
                 std::cout << "\"std::string\" will be used to store property value." << std::endl;
                 auto propertyValue = component.getPropertyValue(property.getName());
-                appendJsonValue<std::string>(component, propertyName, propertyValue);
+                appendPropertyToJsonValue<std::string>(component, propertyName, propertyValue);
                 break;
         }
     }
@@ -113,13 +111,17 @@ void JetServer::createJsonProperties(const ComponentPtr& component)
 }
 
 template <typename ValueType>
-void JetServer::appendJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value)
+void JetServer::appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value)
+{
+    std::string componentName = toStdString(component.getName());
+    jsonValue[componentName][propertyName] = value;
+}
+
+void JetServer::appendMetadataToJsonValue(const ComponentPtr& component)
 {
     std::string componentName = toStdString(component.getName());
     std::string globalId = toStdString(component.getGlobalId());
     ConstCharPtr objectType = component.asPtr<ISerializable>().getSerializeId();
-
-    jsonValue[componentName][propertyName] = value;
     jsonValue[componentName][typeString] = objectType;
     jsonValue[componentName][globalIdString] = globalId;
 }

@@ -19,7 +19,7 @@ public:
 
     explicit JetServer(const DevicePtr& device);
     void publishJetStates();
-    void updateJetState(const ComponentPtr& component, const std::string& propertyName);
+    void updateJetState(const ComponentPtr& component);
 
 private:
     void createComponentJetState(const ComponentPtr& component);
@@ -28,18 +28,13 @@ private:
     void createJsonProperty(const ComponentPtr& component, const PropertyPtr& property);
     void createJsonProperties(const ComponentPtr& component);
     template <typename ValueType>
-    void appendJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);
+    void appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);
+    void appendMetadataToJsonValue(const ComponentPtr& component);
     void addJetState(const std::string& path);
 
     bool determineSelectionProperty(const PropertyPtr& property);
 
     DevicePtr rootDevice;
-    std::string rootDeviceName;
-    std::string deviceName;
-    std::string channelName;
-    std::string functionBlockName;
-    std::string customComponentName;
-    std::string signalName;
 
     Json::Value jsonValue;
     daq::sys::EventLoop jet_eventloop; 
