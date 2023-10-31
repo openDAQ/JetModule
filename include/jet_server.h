@@ -19,7 +19,7 @@ public:
 
     explicit JetServer(const DevicePtr& device);
     void publishJetStates();
-    void updateJetState(const ComponentPtr& component);
+    void updateJetState(const PropertyObjectPtr& propertyObject);
 
 private:
     void createComponentJetState(const ComponentPtr& component);
@@ -33,6 +33,8 @@ private:
     void addJetState(const std::string& path);
 
     bool determineSelectionProperty(const PropertyPtr& property);
+
+    void createCallbackForProperty(const PropertyPtr& property);
 
     DevicePtr rootDevice;
 

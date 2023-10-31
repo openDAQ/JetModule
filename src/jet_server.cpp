@@ -20,8 +20,9 @@ void JetServer::addJetState(const std::string& path)
     jsonValue.clear();
 }
 
-void JetServer::updateJetState(const ComponentPtr& component)
+void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
 {
+    ComponentPtr component = propertyObject.asPtr<IComponent>().getObject();
     createJsonProperties(component);   
     appendMetadataToJsonValue(component);
 
@@ -107,6 +108,7 @@ void JetServer::createJsonProperties(const ComponentPtr& component)
     auto properties = component.getAllProperties();
     for(auto property : properties) {
         createJsonProperty(component, property);
+        createCallbackForProperty(property);
     }
 }
 
@@ -129,6 +131,13 @@ void JetServer::appendMetadataToJsonValue(const ComponentPtr& component)
 bool JetServer::determineSelectionProperty(const PropertyPtr& property)
 {
     return property.getSelectionValues().assigned() ? true : false;
+}
+
+void JetServer::createCallbackForProperty(const PropertyPtr& property)
+{
+    property.getOnPropertyValueWrite() += [&](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) {
+        updateJetState(obj);
+    };
 }
 
 END_NAMESPACE_JET_MODULE
