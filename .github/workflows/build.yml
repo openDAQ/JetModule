@@ -1,0 +1,87 @@
+name: build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+
+  build-opendaq-sdk:
+    name: Build openDAQ SDK
+    runs-on: [ubuntu-latest-8-cores]
+    container: ghcr.io/blueberrydaq/buildroot-sdk:0.6.2
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout JetModule
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+          path: JetModule
+      - name: Determine SDK version
+        run: |
+          SDK_VERSION=$(grep GIT_TAG JetModule/dependencies/openDAQ/CMakeLists.txt | sed -s 's/.*GIT_TAG[ \t]*"\(.*\)".*/\1/')
+          echo "SDK_VERSION=$SDK_VERSION" >> $GITHUB_ENV
+      - name: Checkout openDAQ
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+          path: sdk
+          ref: ${{ env.SDK_VERSION }}
+          repository: openDAQ/openDAQ
+          submodules: recursive
+      - name: Configure SDK
+        run: |
+          mkdir -p sdk-build && cd sdk-build
+          /usr/bin/cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBoost_USE_STATIC_LIBS=OFF \
+            -DDAQMODULES_OPENDAQ_SERVER_MODULE=OFF \
+            -DDAQMODULES_EMPTY_MODULE=OFF \
+            -DOPENDAQ_ENABLE_STREAMING=OFF \
+            -DOPENDAQ_ENABLE_TESTS=OFF \
+            -DOPENDAQ_ENABLE_OPCUA=OFF \
+            -DBOOST_LOCALE_ENABLE_POSIX=OFF \
+            ../sdk
+      - name: Build SDK
+        run: cd sdk-build && make -j8
+      - name: Install SDK
+        run: cd sdk-build && make DESTDIR=../install install
+      - name: Create archive
+        run: tar zcf openDAQ-SDK.tar.gz -C install/opt openDAQ-SDK
+      - name: Upload archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: openDAQ-SDK.tar.gz
+          path: openDAQ-SDK.tar.gz
+
+  build-mf7:
+    name: Build JetModule
+    runs-on: [ubuntu-latest-4-cores]
+    container: ghcr.io/blueberrydaq/buildroot-sdk:0.6.2
+    needs: build-opendaq-sdk
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Download openDAQ SDK
+        uses: actions/download-artifact@v3
+        with:
+          name: openDAQ-SDK.tar.gz
+      - name: Install SDK
+        run: |
+          mkdir -p /opt && tar zxvpf openDAQ-SDK.tar.gz -C /opt
+          rm -f openDAQ-SDK.tar.gz
+      - name: Checkout JetModule
+        uses: actions/checkout@v3
+      - name: Configure JetModule
+        run: |
+          mkdir -p JetModule/build
+          cd JetModule/build
+          /usr/bin/cmake ..
+      - name: Build JetModule
+        run: cd JetModule/build && make -j8
