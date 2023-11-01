@@ -12,15 +12,16 @@ int main() {
 
     // Add a reference device as root device
     instance.setRootDevice("daqref://device0");
-    
-    // Start streaming and openDAQ OpcUa servers
-    // instance.addStandardServers();
+
+    // Start streaming openDAQ OpcUa server
+    instance.addServer("openDAQ OpcUa", nullptr);
 
     auto device = instance.getRootDevice();
 
     JetServer myJet = JetServer(device);
-    myJet.publishJetState();
-    
+    myJet.publishJetStates();
+
+
     std::cout << "Press \"enter\" to exit the application..." << std::endl;
     std::cin.get();
 

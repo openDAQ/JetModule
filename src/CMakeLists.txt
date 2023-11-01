@@ -1,4 +1,4 @@
-set(LIB_NAME jetModule)
+set(LIB_NAME ${PROJECT_NAME})
 set(MODULE_HEADERS_DIR "../include")
 
 # Header files

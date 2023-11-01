@@ -66,6 +66,9 @@ void JetServer::createJsonProperty(const ComponentPtr& component, const Property
     bool isSelectionProperty = determineSelectionProperty(property);
     std::string propertyName = property.getName();
     if(isSelectionProperty) {
+        // TODO
+        // Every selection property has associated ctInt associated coretype, so to display actual values, std::string is used.
+        // This could be changed.
         std::string propertyValue = component.getPropertySelectionValue(toStdString(property.getName().toString()));
         appendPropertyToJsonValue<std::string>(component, propertyName, propertyValue);
     }
@@ -75,7 +78,7 @@ void JetServer::createJsonProperty(const ComponentPtr& component, const Property
         _Float64 propertyValueFloat;
         StringPtr propertyValueString;
         
-        CoreType propertyType = property.getValueType();;
+        CoreType propertyType = property.getValueType();
         switch(propertyType) {
             case CoreType::ctBool:
                 propertyValueBool = component.getPropertyValue(property.getName());

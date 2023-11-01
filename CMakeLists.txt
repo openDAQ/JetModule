@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(jetModule 
+project(JetModule 
     VERSION 1.0.0 
     DESCRIPTION "Library for using JetPeer alongside with openDAQ"
     LANGUAGES C CXX)
@@ -11,8 +11,8 @@ set(OPEN_SOURCE_OPENDAQ_REPO_PREFIX "git@github.com:openDAQ" CACHE STRING "Set t
 
 
 ##### Options
-option(IGNORE_INSTALLED_SDK "Build SDK internally even if found on system"                       OFF)
-option(COMPILE_REFERENCE_APPLICATION "Reference application is an example on how to use jetModule "  OFF)
+option(IGNORE_INSTALLED_SDK "Build SDK internally even if found on system"                           OFF)
+option(COMPILE_REFERENCE_APPLICATION "Reference application is an example on how to use jetModule "  ON)
 
 ##### Dependencies
 add_subdirectory(dependencies/openDAQ)
@@ -25,5 +25,3 @@ add_subdirectory(src)
 if(COMPILE_REFERENCE_APPLICATION)
     add_subdirectory(app)
 endif()
-
-# install(TARGETS ${PROJECT_NAME})
