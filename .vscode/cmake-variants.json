@@ -1,0 +1,36 @@
+{
+    "buildType": {
+        "default": "Debug",
+        "description": "The build type",
+        "choices": {
+            "Debug": {
+                "short": "Debug",
+                "long": "Debug: with debug info",
+                "buildType": "Debug"
+            },
+            "Release": {
+                "short": "Release",
+                "long": "Release: no debug info",
+                "buildType": "Release"
+            }
+        }
+    },
+    "targetToolchain": {
+        "default": "am64x",
+        "choices": {
+            "am64x": {
+                "short": "am64x",
+                "long": "ARM aarch64 toolchain for the Sitara AM64x platform",
+                "settings": {
+                    "TOOLCHAIN_LINK": "am64x",
+                    "BUILD_AM64X": true,
+                    "CMAKE_INSTALL_RPATH": ""
+                }
+            },
+            "native": {
+                "short": "native",
+                "long": "Native toolchain"
+            }
+        }
+    }
+}
