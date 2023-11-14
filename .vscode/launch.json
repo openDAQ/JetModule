@@ -9,10 +9,10 @@
             "name": "Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/ref_app",
+            "program": "${workspaceFolder}/build-native/bin/ref_app",
             "args": [],
             "environment": [
-                { "name": "OPENDAQ_MODULES_PATH", "value": "${workspaceRoot}/build/bin" }
+                { "name": "OPENDAQ_MODULES_PATH", "value": "${workspaceRoot}/build-native/bin" }
             ],
             "cwd": "${workspaceRoot}",
             "externalConsole": false,
