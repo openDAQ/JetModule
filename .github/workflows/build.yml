@@ -1,0 +1,42 @@
+name: Build
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+  push:
+    branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  build-jet-module:
+    name: Buld JetModule
+    runs-on: [ubuntu-latest-4-cores]
+    container: ghcr.io/blueberrydaq/buildroot-sdk:0.6.2
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, x86_64]
+    steps:
+      - name: Checkout JetModule
+        uses: actions/checkout@v3
+      - name: Configure JetModule
+        run: |
+          mkdir -p JetModule/build
+          cd JetModule/build
+          TOOLCHAIN=(/opt/bb-sdk-buildroot-${{ matrix.arch }}-*)
+          /usr/bin/cmake \
+            -DCOMPILE_REFERENCE_APPLICATION=OFF \
+            ..
+      - name: Build JetModule
+        run: cd JetModule/build && make -j4
+      - name: Install JetModule
+        run: cd JetModule/build && make DESTDIR=../../install install
+      - name: Create archive
+        run: tar zcf JetModule-${{ matrix.arch }}.tar.gz -C install/opt JetModule
+      - name: Upload archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: JetModule-${{ matrix.arch }}.tar.gz
+          path: JetModule-${{ matrix.arch }}.tar.gz
