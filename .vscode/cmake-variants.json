@@ -22,8 +22,7 @@
                 "short": "am64x",
                 "long": "ARM aarch64 toolchain for the Sitara AM64x platform",
                 "settings": {
-                    "TOOLCHAIN_LINK": "am64x",
-                    "BUILD_AM64X": true,
+                    "TOOLCHAIN_PATH": "${TOOLCHAIN_PATH}",
                     "CMAKE_INSTALL_RPATH": ""
                 }
             },

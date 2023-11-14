@@ -1,7 +1,7 @@
 {
     "env": {
         "ARCH_am64x": "aarch64-none-linux-gnu",
-        "TOOLCHAIN_am64x": "${workspaceFolder}/toolchain/am64x"
+        "TOOLCHAIN_am64x": "${TOOLCHAIN_PATH}"
     },
     "configurations": [
         {
@@ -10,8 +10,7 @@
                 "${workspaceFolder}/include/**",
                 "${workspaceFolder}/dependencies/**"
             ],
-            // "compilerPath": "${TOOLCHAIN_am64x}/bin/${ARCH_am64x}-g++",
-            "compilerPath": "/home/nputk/bb-sdk-buildroot-aarch64-1.0.2/bin/aarch64-none-linux-gnu-g++",
+            "compilerPath": "${TOOLCHAIN_am64x}/bin/${ARCH_am64x}-g++",
             "cStandard": "c99",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-arm64",
