@@ -1,2 +1,4 @@
-build*
+build/
+build-native/
+build-am64x/
 toolchain/*
