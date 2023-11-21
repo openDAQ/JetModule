@@ -4,6 +4,8 @@ include(FetchContent)
 
 set(jetpeer-cpp_REQUIREDVERSION "3.0.0")
 
+set(BUILD_SHARED_LIBS ON)
+
 find_package(jetpeerasync   ${jetpeer-cpp_REQUIREDVERSION} QUIET)
 find_package(jetpeer        ${jetpeer-cpp_REQUIREDVERSION} QUIET)
 

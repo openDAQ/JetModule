@@ -4,6 +4,7 @@ include(FetchContent)
 
 set(hbk_REQUIREDVERSION "2.0.0")
 
+set(BUILD_SHARED_LIBS        ON)
 set(HBK_GENERATE_DOC        OFF)
 set(HBK_POST_BUILD_UNITTEST OFF)
 set(HBK_TOOLS               OFF)
