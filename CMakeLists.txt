@@ -6,8 +6,8 @@ project(JetModule
     LANGUAGES C CXX)
 
 ##### Variables
-set(HBKWORLD_REPO_PREFIX "git@github.com:hbkworld" CACHE STRING "Set this if using a repository mirror")
-set(OPENDAQ_REPO_PREFIX "git@github.com:openDAQ" CACHE STRING "Set this if using a repository mirror")
+set(HBKWORLD_REPO_PREFIX "https://github.com/hbkworld" CACHE STRING "Set this if using a repository mirror")
+set(OPENDAQ_REPO_PREFIX "https://github.com/openDAQ" CACHE STRING "Set this if using a repository mirror")
 
 
 ##### Options
