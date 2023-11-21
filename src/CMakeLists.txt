@@ -36,7 +36,7 @@ add_library(${LIB_NAME} SHARED
 )
 add_library(${SDK_TARGET_NAMESPACE}::${LIB_NAME} ALIAS ${LIB_NAME})
 target_include_directories(${LIB_NAME} PUBLIC ${MODULE_HEADERS_DIR})
-target_link_libraries(${LIB_NAME} PUBLIC daq::opendaq daq jetpeer jetpeerasync jsoncpp_lib pugixml)
+target_link_libraries(${LIB_NAME} PUBLIC daq::opendaq hbk jetpeer jetpeerasync jsoncpp_lib pugixml)
 
 target_compile_definitions(${LIB_NAME} PUBLIC OPENDAQ_THREAD_SAFE)
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>

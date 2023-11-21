@@ -6,8 +6,8 @@ project(JetModule
     LANGUAGES C CXX)
 
 ##### Variables
-set(OPENDAQ_REPO_PREFIX "git@github.com:blueberrydaq" CACHE STRING "Set this if using a repository mirror")
-set(OPEN_SOURCE_OPENDAQ_REPO_PREFIX "git@github.com:openDAQ" CACHE STRING "Set this if using a repository mirror")
+set(HBKWORLD_REPO_PREFIX "git@github.com:hbkworld" CACHE STRING "Set this if using a repository mirror")
+set(OPENDAQ_REPO_PREFIX "git@github.com:openDAQ" CACHE STRING "Set this if using a repository mirror")
 
 
 ##### Options
@@ -17,9 +17,9 @@ option(COMPILE_REFERENCE_APPLICATION "Reference application is an example on how
 ##### Dependencies
 add_subdirectory(dependencies/openDAQ)
 add_subdirectory(dependencies/jsoncpp)
-add_subdirectory(dependencies/libopenDAQ)
+add_subdirectory(dependencies/libhbk)
 add_subdirectory(dependencies/pugixml)
-add_subdirectory(dependencies/jetPeerCpp)
+add_subdirectory(dependencies/jetpeer-cpp)
 
 add_subdirectory(src)
 if(COMPILE_REFERENCE_APPLICATION)
