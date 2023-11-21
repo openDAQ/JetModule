@@ -16,8 +16,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Configure JetModule
         run: |
-          mkdir -p JetModule/build
-          cd JetModule/build
+          mkdir -p build
+          cd build
           cmake -DCOMPILE_REFERENCE_APPLICATION=OFF ..
       - name: Build JetModule
-        run: cd JetModule/build && make -j8
+        run: cd build && make -j8
