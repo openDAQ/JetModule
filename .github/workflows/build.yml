@@ -18,6 +18,6 @@ jobs:
         run: |
           mkdir -p JetModule/build
           cd JetModule/build
-          /usr/bin/cmake -DCOMPILE_REFERENCE_APPLICATION=OFF ..
+          cmake -DCOMPILE_REFERENCE_APPLICATION=OFF ..
       - name: Build JetModule
         run: cd JetModule/build && make -j8
