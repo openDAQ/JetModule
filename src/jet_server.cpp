@@ -7,7 +7,7 @@ BEGIN_NAMESPACE_JET_MODULE
 JetServer::JetServer(const DevicePtr& device)
 {
     this->rootDevice = device;
-    jetPeer = new daq::jet::PeerAsync(jet_eventloop, daq::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
+    jetPeer = new hbk::jet::PeerAsync(jet_eventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
 }
 
 void JetServer::addJetState(const std::string& path)
@@ -16,7 +16,7 @@ void JetServer::addJetState(const std::string& path)
         std::cout << "Want to change state with path: " << path << " with the value " << value.toStyledString() << std::endl;
         return value;
     };
-    jetPeer->addStateAsync(path, jsonValue, daq::jet::responseCallback_t(), cb);
+    jetPeer->addStateAsync(path, jsonValue, hbk::jet::responseCallback_t(), cb);
     jsonValue.clear();
 }
 

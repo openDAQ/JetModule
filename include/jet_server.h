@@ -17,8 +17,8 @@
 #include "common.h"
 #include <opendaq/device_impl.h>
 
-#include "daq/sys/eventloop.h"
-#include "daq/string/replace.h"
+#include "hbk/sys/eventloop.h"
+#include "hbk/string/replace.h"
 #include "jet/peerasync.hpp"
 
 BEGIN_NAMESPACE_JET_MODULE
@@ -54,8 +54,8 @@ private:
     DevicePtr rootDevice;
 
     Json::Value jsonValue;
-    daq::sys::EventLoop jet_eventloop; 
-    daq::jet::PeerAsync* jetPeer;
+    hbk::sys::EventLoop jet_eventloop; 
+    hbk::jet::PeerAsync* jetPeer;
 };
 
 
