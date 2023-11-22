@@ -46,4 +46,3 @@ target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_
 
 set(OPENDAQ_MODULE_SUFFIX ".module${CMAKE_SHARED_LIBRARY_SUFFIX}")
 opendaq_set_module_properties(${LIB_NAME} ${PROJECT_VERSION_MAJOR})
-create_version_header(${LIB_NAME})
