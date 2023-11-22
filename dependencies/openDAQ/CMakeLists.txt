@@ -15,11 +15,7 @@ if(NOT IGNORE_INSTALLED_SDK)
     find_package(openDAQ QUIET GLOBAL)
 endif()
 
-if(openDAQ_FOUND)
-
-	include("${openDAQ_DIR}/../../../share/cmake/openDAQUtils.cmake")
-
-else()
+if(NOT openDAQ_FOUND)
 
 	if(NOT IGNORE_INSTALLED_SDK)
         message(WARNING
