@@ -33,6 +33,7 @@ public:
     static constexpr char typeString[] = "_type";
 
     explicit JetServer(const DevicePtr& device);
+    ~JetServer();
     void publishJetStates();
     void updateJetState(const PropertyObjectPtr& propertyObject);
 

@@ -10,6 +10,11 @@ JetServer::JetServer(const DevicePtr& device)
     jetPeer = new hbk::jet::PeerAsync(jet_eventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
 }
 
+JetServer::~JetServer()
+{
+    delete(jetPeer);
+}
+
 void JetServer::addJetState(const std::string& path)
 {
     auto cb = [&](const Json::Value& value, std::string path) {
