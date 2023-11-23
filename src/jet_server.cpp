@@ -80,7 +80,7 @@ void JetServer::createJsonProperty(const ComponentPtr& component, const Property
     else {
         bool propertyValueBool;
         int64_t propertyValueInt;
-        _Float64 propertyValueFloat;
+        double propertyValueFloat;
         StringPtr propertyValueString;
         
         CoreType propertyType = property.getValueType();
@@ -95,7 +95,7 @@ void JetServer::createJsonProperty(const ComponentPtr& component, const Property
                 break;
             case CoreType::ctFloat:
                 propertyValueFloat = component.getPropertyValue(property.getName());
-                appendPropertyToJsonValue<_Float64>(component, propertyName, propertyValueFloat);
+                appendPropertyToJsonValue<double>(component, propertyName, propertyValueFloat);
                 break;
             case CoreType::ctString:
                 propertyValueString = component.getPropertyValue(property.getName());
