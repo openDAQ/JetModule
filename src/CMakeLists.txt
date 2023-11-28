@@ -1,5 +1,5 @@
 set(LIB_NAME ${PROJECT_NAME})
-set(MODULE_HEADERS_DIR "../include")
+set(MODULE_HEADERS_DIR "${PROJECT_SOURCE_DIR}/include")
 
 # Header files
 set(SRC_Include 
@@ -39,10 +39,17 @@ target_include_directories(${LIB_NAME} PUBLIC ${MODULE_HEADERS_DIR})
 target_link_libraries(${LIB_NAME} PUBLIC daq::opendaq hbk jetpeer jetpeerasync jsoncpp_lib pugixml)
 
 target_compile_definitions(${LIB_NAME} PUBLIC OPENDAQ_THREAD_SAFE)
-target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-                                              $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include>
-                                              $<INSTALL_INTERFACE:include>
+target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/${LIB_NAME}>
+                                              $<INSTALL_INTERFACE:${LIB_NAME}>
 )
 
 set(OPENDAQ_MODULE_SUFFIX ".module${CMAKE_SHARED_LIBRARY_SUFFIX}")
 opendaq_set_module_properties(${LIB_NAME} ${PROJECT_VERSION_MAJOR})
+
+install(TARGETS ${LIB_NAME} 
+        EXPORT ${LIB_NAME}
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+)
+file(GLOB MODULE_HEADERS "${MODULE_HEADERS_DIR}/*.h")
+install(FILES ${MODULE_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${LIB_NAME}")
