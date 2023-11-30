@@ -58,6 +58,7 @@ private:
     Json::Value jsonValue;
     hbk::sys::EventLoop jet_eventloop; 
     hbk::jet::PeerAsync* jetPeer;
+    bool propertyCallbacksCreated;
 };
 
 
