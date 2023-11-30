@@ -9,7 +9,7 @@
             "name": "Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/ref_app",
+            "program": "${workspaceFolder}/build/app/ref_app",
             "args": [],
             "environment": [
                 { "name": "OPENDAQ_MODULES_PATH", "value": "${workspaceRoot}/build/bin" }
