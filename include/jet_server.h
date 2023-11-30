@@ -41,7 +41,8 @@ private:
     void createComponentJetState(const ComponentPtr& component);
     void createComponentListJetStates(const ListPtr<ComponentPtr>& componentList);
 
-    void createJsonProperty(const ComponentPtr& component, const PropertyPtr& property);
+    template <typename PropertyHolderObject>
+    void createJsonProperty(const ComponentPtr& propertyPublisher, const PropertyPtr& property, const PropertyHolderObject& propertyHolderObject);
     void createJsonProperties(const ComponentPtr& component);
     template <typename ValueType>
     void appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);

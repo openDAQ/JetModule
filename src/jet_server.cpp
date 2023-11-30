@@ -66,7 +66,8 @@ void JetServer::createComponentListJetStates(const ListPtr<ComponentPtr>& compon
     }
 }
 
-void JetServer::createJsonProperty(const ComponentPtr& component, const PropertyPtr& property)
+template <typename PropertyHolderObject>
+void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const PropertyPtr& property, const PropertyHolderObject& propertyHolderObject)
 {
     bool isSelectionProperty = determineSelectionProperty(property);
     std::string propertyName = property.getName();
@@ -74,8 +75,8 @@ void JetServer::createJsonProperty(const ComponentPtr& component, const Property
         // TODO
         // Every selection property has associated ctInt associated coretype, so to display actual values, std::string is used.
         // This could be changed.
-        std::string propertyValue = component.getPropertySelectionValue(toStdString(property.getName().toString()));
-        appendPropertyToJsonValue<std::string>(component, propertyName, propertyValue);
+        std::string propertyValue = propertyHolderObject.getPropertySelectionValue(toStdString(property.getName().toString()));
+        appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, propertyValue);
     }
     else {
         bool propertyValueBool;
@@ -86,26 +87,26 @@ void JetServer::createJsonProperty(const ComponentPtr& component, const Property
         CoreType propertyType = property.getValueType();
         switch(propertyType) {
             case CoreType::ctBool:
-                propertyValueBool = component.getPropertyValue(property.getName());
-                appendPropertyToJsonValue<bool>(component, propertyName, propertyValueBool);
+                propertyValueBool = propertyHolderObject.getPropertyValue(propertyName);
+                appendPropertyToJsonValue<bool>(propertyPublisher, propertyName, propertyValueBool);
                 break;
             case CoreType::ctInt:
-                propertyValueInt = component.getPropertyValue(property.getName());
-                appendPropertyToJsonValue<int64_t>(component, propertyName, propertyValueInt);
+                propertyValueInt = propertyHolderObject.getPropertyValue(propertyName);
+                appendPropertyToJsonValue<int64_t>(propertyPublisher, propertyName, propertyValueInt);
                 break;
             case CoreType::ctFloat:
-                propertyValueFloat = component.getPropertyValue(property.getName());
-                appendPropertyToJsonValue<double>(component, propertyName, propertyValueFloat);
+                propertyValueFloat = propertyHolderObject.getPropertyValue(propertyName);
+                appendPropertyToJsonValue<double>(propertyPublisher, propertyName, propertyValueFloat);
                 break;
             case CoreType::ctString:
-                propertyValueString = component.getPropertyValue(property.getName());
-                appendPropertyToJsonValue<std::string>(component, propertyName, toStdString(propertyValueString));
+                propertyValueString = propertyHolderObject.getPropertyValue(propertyName);
+                appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, toStdString(propertyValueString));
                 break;
             default:
                 std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
                 std::cout << "\"std::string\" will be used to store property value." << std::endl;
-                auto propertyValue = component.getPropertyValue(property.getName());
-                appendPropertyToJsonValue<std::string>(component, propertyName, propertyValue);
+                auto propertyValue = propertyHolderObject.getPropertyValue(propertyName);
+                appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, propertyValue);
                 break;
         }
     }
@@ -115,8 +116,18 @@ void JetServer::createJsonProperties(const ComponentPtr& component)
 {
     auto properties = component.getAllProperties();
     for(auto property : properties) {
-        createJsonProperty(component, property);
+        createJsonProperty<ComponentPtr>(component, property, component);
         createCallbackForProperty(property);
+    }
+
+    // Checking whether the component is a device. If it's a device we have to get deviceInfo properties manually
+    if(strcmp(component.asPtr<ISerializable>().getSerializeId(), "Device") == 0) {
+        auto deviceInfo = component.asPtr<IDevice>().getInfo();
+        auto deviceInfoProperties = deviceInfo.getAllProperties();
+        for(auto property : deviceInfoProperties) {
+            createJsonProperty<DeviceInfoPtr>(component, property, deviceInfo);
+            createCallbackForProperty(property);
+        }
     }
 }
 
