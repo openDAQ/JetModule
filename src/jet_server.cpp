@@ -7,6 +7,7 @@ BEGIN_NAMESPACE_JET_MODULE
 JetServer::JetServer(const DevicePtr& device)
 {
     this->rootDevice = device;
+    propertyCallbacksCreated = false;
     jetPeer = new hbk::jet::PeerAsync(jet_eventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
 }
 
@@ -49,6 +50,8 @@ void JetServer::publishJetStates()
     createComponentListJetStates(customComponents);
     auto signals = rootDevice.getSignals();
     createComponentListJetStates(signals);
+
+    propertyCallbacksCreated = true;
 }
 
 void JetServer::createComponentJetState(const ComponentPtr& component)
@@ -117,7 +120,8 @@ void JetServer::createJsonProperties(const ComponentPtr& component)
     auto properties = component.getAllProperties();
     for(auto property : properties) {
         createJsonProperty<ComponentPtr>(component, property, component);
-        createCallbackForProperty(property);
+        if(!propertyCallbacksCreated)
+            createCallbackForProperty(property);
     }
 
     // Checking whether the component is a device. If it's a device we have to get deviceInfo properties manually
@@ -126,7 +130,8 @@ void JetServer::createJsonProperties(const ComponentPtr& component)
         auto deviceInfoProperties = deviceInfo.getAllProperties();
         for(auto property : deviceInfoProperties) {
             createJsonProperty<DeviceInfoPtr>(component, property, deviceInfo);
-            createCallbackForProperty(property);
+            if(!propertyCallbacksCreated)
+                createCallbackForProperty(property);
         }
     }
 }
