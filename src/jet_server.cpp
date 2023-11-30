@@ -28,7 +28,7 @@ void JetServer::addJetState(const std::string& path)
 
 void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
 {
-    ComponentPtr component = propertyObject.asPtr<IComponent>().getObject();
+    ComponentPtr component = propertyObject.asPtr<IComponent>();
     createJsonProperties(component);   
     appendMetadataToJsonValue(component);
 
