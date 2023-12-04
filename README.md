@@ -36,3 +36,7 @@ cmake --build .
 ### TODO
 
 - Add Support for all property types.
+- ref_dev0/MethodSet/GetErrorInformation (Decide whether methods like these habe to be turned into Jet methods).
+- Verify that Jet methods for FunctionProperty is created properly.
+- Support parameter passing to Jet methods
+- Rethink how to handle SelectionProperties

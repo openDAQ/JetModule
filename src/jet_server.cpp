@@ -105,6 +105,12 @@ void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const 
                 propertyValueString = propertyHolderObject.getPropertyValue(propertyName);
                 appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, toStdString(propertyValueString));
                 break;
+            case CoreType::ctProc:
+                createJetMethod<ProcedurePtr>(propertyPublisher, property);
+                break;
+            case CoreType::ctFunc:
+                createJetMethod<FunctionPtr>(propertyPublisher, property);
+                break;
             default:
                 std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
                 std::cout << "\"std::string\" will be used to store property value." << std::endl;
@@ -162,6 +168,27 @@ void JetServer::createCallbackForProperty(const PropertyPtr& property)
     property.getOnPropertyValueWrite() += [&](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) {
         updateJetState(obj);
     };
+}
+
+// TODO! currently only FunctionProperty with zero parameters is supported
+template <typename MethodType>
+void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property)
+{
+    std::string path = jetStatePath + propertyPublisher.getGlobalId() + "/" + property.getName();
+
+    auto cb = [&]( const Json::Value& )
+    {
+        MethodType method = propertyPublisher.getPropertyValue(property.getName());
+        try {
+            method();
+            return "Procedure called successfully";
+        }
+        catch(...) {
+            return "Procedure called with failure";
+        }
+    };
+    
+    jetPeer->addMethodAsync(path, hbk::jet::responseCallback_t(), cb);
 }
 
 END_NAMESPACE_JET_MODULE
