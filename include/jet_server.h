@@ -53,6 +53,9 @@ private:
 
     void createCallbackForProperty(const PropertyPtr& property);
 
+    template <typename MethodType>
+    void createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property);
+
     DevicePtr rootDevice;
 
     Json::Value jsonValue;
