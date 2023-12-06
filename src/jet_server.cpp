@@ -8,11 +8,15 @@ JetServer::JetServer(const DevicePtr& device)
 {
     this->rootDevice = device;
     propertyCallbacksCreated = false;
-    jetPeer = new hbk::jet::PeerAsync(jet_eventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
+    jetEventloopRunning = false;
+
+    startJetEventloopThread();
+    jetPeer = new hbk::jet::PeerAsync(jetEventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
 }
 
 JetServer::~JetServer()
 {
+    stopJetEventloop();
     delete(jetPeer);
 }
 
@@ -109,7 +113,7 @@ void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const 
                 createJetMethod<ProcedurePtr>(propertyPublisher, property);
                 break;
             case CoreType::ctFunc:
-                createJetMethod<FunctionPtr>(propertyPublisher, property);
+                // createJetMethod<FunctionPtr>(propertyPublisher, property);
                 break;
             default:
                 std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
@@ -175,20 +179,47 @@ template <typename MethodType>
 void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property)
 {
     std::string path = jetStatePath + propertyPublisher.getGlobalId() + "/" + property.getName();
+    MethodType method = propertyPublisher.getPropertyValue(property.getName());
 
-    auto cb = [&]( const Json::Value& )
+    // Wrap the method in a std::function to manage its lifetime
+    std::function<void()> methodWrapper = [method]() {
+        method();
+    };
+
+    auto cb = [methodWrapper]( const Json::Value& )
     {
-        MethodType method = propertyPublisher.getPropertyValue(property.getName());
         try {
-            method();
-            return "Procedure called successfully";
+            methodWrapper();
+            return "Method called successfully";
         }
         catch(...) {
-            return "Procedure called with failure";
+            return "Method called with failure";
         }
     };
     
     jetPeer->addMethodAsync(path, hbk::jet::responseCallback_t(), cb);
+}
+
+void JetServer::startJetEventloop()
+{
+    if(!jetEventloopRunning) {
+        jetEventloopRunning = true;
+        jetEventloop.execute();
+    }
+}
+
+void JetServer::stopJetEventloop()
+{
+    if(jetEventloopRunning) {
+        jetEventloopRunning = false;
+        jetEventloop.stop();
+        jetEventloopThread.join();
+    }
+}
+
+void JetServer::startJetEventloopThread()
+{
+    jetEventloopThread = std::thread{ &JetServer::startJetEventloop, this };
 }
 
 END_NAMESPACE_JET_MODULE

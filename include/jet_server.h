@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <thread>
 #include "common.h"
 #include <opendaq/device_impl.h>
 
@@ -51,6 +52,7 @@ private:
 
     bool determineSelectionProperty(const PropertyPtr& property);
 
+    bool propertyCallbacksCreated;
     void createCallbackForProperty(const PropertyPtr& property);
 
     template <typename MethodType>
@@ -59,9 +61,14 @@ private:
     DevicePtr rootDevice;
 
     Json::Value jsonValue;
-    hbk::sys::EventLoop jet_eventloop; 
     hbk::jet::PeerAsync* jetPeer;
-    bool propertyCallbacksCreated;
+
+    hbk::sys::EventLoop jetEventloop;
+    bool jetEventloopRunning;
+    std::thread jetEventloopThread;
+    void startJetEventloop();
+    void stopJetEventloop();
+    void startJetEventloopThread();
 };
 
 
