@@ -110,10 +110,10 @@ void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const 
                 appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, toStdString(propertyValueString));
                 break;
             case CoreType::ctProc:
-                createJetMethod<ProcedurePtr>(propertyPublisher, property);
+                createJetMethod(propertyPublisher, property);
                 break;
             case CoreType::ctFunc:
-                // createJetMethod<FunctionPtr>(propertyPublisher, property);
+                createJetMethod(propertyPublisher, property);
                 break;
             default:
                 std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
@@ -174,27 +174,82 @@ void JetServer::createCallbackForProperty(const PropertyPtr& property)
     };
 }
 
-// TODO! currently only FunctionProperty with zero parameters is supported
-template <typename MethodType>
+void JetServer::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index)
+{
+    Json::ValueType valueType = args[index].type();
+    switch(valueType)
+                        {
+                            case Json::ValueType::nullValue:
+                                std::cout << "Null argument type detected" << std::endl;
+                                break;
+                            case Json::ValueType::intValue:
+                                daqArg.asPtr<IList>().pushBack(args[index].asInt());
+                                break;
+                            case Json::ValueType::uintValue:
+                                daqArg.asPtr<IList>().pushBack(args[index].asUInt());
+                                break;
+                            case Json::ValueType::realValue:
+                                daqArg.asPtr<IList>().pushBack(args[index].asDouble());
+                                break;
+                            case Json::ValueType::stringValue:
+                                daqArg.asPtr<IList>().pushBack(args[index].asString());
+                                break;
+                            case Json::ValueType::booleanValue:
+                                daqArg.asPtr<IList>().pushBack(args[index].asBool());
+                                break;
+                            default:
+                                std::cout << "Unsupported argument detected: " << valueType << std::endl;
+                        }
+}
+
 void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property)
 {
     std::string path = jetStatePath + propertyPublisher.getGlobalId() + "/" + property.getName();
-    MethodType method = propertyPublisher.getPropertyValue(property.getName());
 
-    // Wrap the method in a std::function to manage its lifetime
-    std::function<void()> methodWrapper = [method]() {
-        method();
-    };
+    std::string methodName = property.getName();
+    CoreType coreType = property.getValueType();
 
-    auto cb = [methodWrapper]( const Json::Value& )
+    auto cb = [propertyPublisher, methodName, coreType, this]( const Json::Value& args)
     {
-        try {
-            methodWrapper();
-            return "Method called successfully";
+        try
+        {
+            int numberOfArgs = args.size();
+            const BaseObjectPtr method = propertyPublisher.getPropertyValue(methodName);
+            if(numberOfArgs > 0)
+            {
+                BaseObjectPtr daqArg;
+                if(numberOfArgs > 1)
+                {
+                    daqArg = List<IBaseObject>();
+                    for (uint16_t i = 0; i < numberOfArgs; ++i)
+                    {   
+                        convertJsonToDaqArguments(daqArg, args, i);
+                    }
+                }
+                else
+                {
+                    convertJsonToDaqArguments(daqArg, args, 0);
+                }
+                if (coreType == ctFunc)
+                    method.asPtr<IFunction>()(daqArg);
+                else
+                    method.asPtr<IProcedure>()(daqArg);
+
+                return "Method called successfully\n";
+            }
+            if (coreType == ctFunc)
+                method.asPtr<IFunction>()();
+            else
+                method.asPtr<IProcedure>()();
+            
+            return "Method called successfully\n";
+
         }
-        catch(...) {
-            return "Method called with failure";
+        catch(...)
+        {
+            return "Method called with failure\n";
         }
+        
     };
     
     jetPeer->addMethodAsync(path, hbk::jet::responseCallback_t(), cb);

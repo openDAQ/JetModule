@@ -54,8 +54,8 @@ private:
 
     bool propertyCallbacksCreated;
     void createCallbackForProperty(const PropertyPtr& property);
-
-    template <typename MethodType>
+    
+    void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index);
     void createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property);
 
     DevicePtr rootDevice;
