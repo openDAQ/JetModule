@@ -61,6 +61,7 @@ private:
     void createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property);
 
     DevicePtr rootDevice;
+    DictPtr<IString, IComponent> componentIdDict;
 
     Json::Value jsonValue;
     hbk::jet::PeerAsync* jetPeer;
@@ -71,6 +72,8 @@ private:
     void startJetEventloop();
     void stopJetEventloop();
     void startJetEventloopThread();
+
+    void convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
 };
 
 

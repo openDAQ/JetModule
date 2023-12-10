@@ -12,6 +12,7 @@ JetServer::JetServer(const DevicePtr& device)
 
     startJetEventloopThread();
     jetPeer = new hbk::jet::PeerAsync(jetEventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
+    componentIdDict = Dict<IString, IComponent>();
 }
 
 JetServer::~JetServer()
@@ -22,12 +23,117 @@ JetServer::~JetServer()
 
 void JetServer::addJetState(const std::string& path)
 {
-    auto cb = [&](const Json::Value& value, std::string path) {
+    auto cb = [this](const Json::Value& value, std::string path) -> Json::Value
+    {
         std::cout << "Want to change state with path: " << path << " with the value " << value.toStyledString() << std::endl;
+        std::string globalId = value.get("Global ID", "").asString();
+        ComponentPtr component = componentIdDict.get(globalId);
+        auto properties = component.getAllProperties();
+        try
+        {
+            for(auto property : properties)
+            {
+                std::string propertyName = property.getName();
+                Json::ValueType valueType = value.get(propertyName, "").type();
+
+                int64_t propertyValueInt;
+                uint64_t propertyValueUint;
+                double propertyValueDouble;
+                std::string propertyValueString;
+                bool propertyValueBool;
+                switch(valueType)
+                {
+                    case Json::ValueType::nullValue:
+                        std::cout << "Null argument type detected" << std::endl;
+                        break;
+                    case Json::ValueType::intValue:
+                        propertyValueInt = value.get(propertyName, "").asInt();
+                        component.setPropertyValue(propertyName, propertyValueInt);
+                        break;
+                    case Json::ValueType::uintValue:
+                        propertyValueUint = value.get(propertyName, "").asUInt64();
+                        component.setPropertyValue(propertyName, propertyValueUint);
+                        break;
+                    case Json::ValueType::realValue:
+                        propertyValueDouble = value.get(propertyName, "").asDouble();
+                        component.setPropertyValue(propertyName, propertyValueDouble);
+                        break;
+                    case Json::ValueType::stringValue:
+                        propertyValueString = value.get(propertyName, "").asString();
+                        component.setPropertyValue(propertyName, propertyValueString);
+                        break;
+                    case Json::ValueType::booleanValue:
+                        propertyValueBool = value.get(propertyName, "").asBool();
+                        component.setPropertyValue(propertyName, propertyValueBool);
+                        break;
+                    case Json::ValueType::arrayValue:
+                        convertJsonToDaqArray(component, propertyName, value);
+                        break;
+                    default:
+                        std::cout << "Unsupported argument detected: " << valueType << std::endl;
+                }
+            }
+            return "Properties of " + toStdString(component.getGlobalId()) + " successfully updated";
+        }
+        catch(...)
+        {
+            return "Failed to update properties of " + toStdString(component.getGlobalId());
+        }
+    
         return value;
     };
+
     jetPeer->addStateAsync(path, jsonValue, hbk::jet::responseCallback_t(), cb);
     jsonValue.clear();
+}
+
+void JetServer::convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value)
+{
+    auto array = value.get(propertyName, "");
+    uint64_t arraySize = array.size();
+    Json::ValueType arrayElementType =  array[0].type();
+
+    ListPtr<BaseObjectPtr> daqArray;
+    switch(arrayElementType)
+    {
+        case Json::ValueType::nullValue:
+            std::cout << "Null type element detected in the array" << std::endl;
+            break;
+        case Json::ValueType::intValue:
+            daqArray = List<int>();
+            for(int i = 0; i < arraySize; i++) {
+                daqArray.pushBack(array[i].asInt());
+            }
+            break;
+        case Json::ValueType::uintValue:
+            daqArray = List<uint>();
+            for(int i = 0; i < arraySize; i++) {
+                daqArray.pushBack(array[i].asUInt());
+            }
+            break;
+        case Json::ValueType::realValue:
+            daqArray = List<double>();
+            for(int i = 0; i < arraySize; i++) {
+                daqArray.pushBack(array[i].asDouble());
+            }
+            break;
+        case Json::ValueType::stringValue:
+            daqArray = List<std::string>();
+            for(int i = 0; i < arraySize; i++) {
+                daqArray.pushBack(array[i].asString());
+            }
+            break;
+        case Json::ValueType::booleanValue:
+            daqArray = List<bool>();
+            for(int i = 0; i < arraySize; i++) {
+                daqArray.pushBack(array[i].asBool());
+            }
+            break;
+        default:
+            std::cout << "Unsupported array element type detected: " << arrayElementType << std::endl;
+    }
+
+    propertyHolder.setPropertyValue(propertyName, daqArray);
 }
 
 void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
@@ -60,6 +166,7 @@ void JetServer::publishJetStates()
 
 void JetServer::createComponentJetState(const ComponentPtr& component)
 {
+    componentIdDict.set(component.getGlobalId(), component);
     createJsonProperties(component);   
     appendMetadataToJsonValue(component);
     std::string path = jetStatePath + component.getGlobalId();
