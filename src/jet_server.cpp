@@ -320,30 +320,31 @@ void JetServer::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Val
 {
     Json::ValueType valueType = args[index].type();
     switch(valueType)
-                        {
-                            case Json::ValueType::nullValue:
-                                std::cout << "Null argument type detected" << std::endl;
-                                break;
-                            case Json::ValueType::intValue:
-                                daqArg.asPtr<IList>().pushBack(args[index].asInt());
-                                break;
-                            case Json::ValueType::uintValue:
-                                daqArg.asPtr<IList>().pushBack(args[index].asUInt());
-                                break;
-                            case Json::ValueType::realValue:
-                                daqArg.asPtr<IList>().pushBack(args[index].asDouble());
-                                break;
-                            case Json::ValueType::stringValue:
-                                daqArg.asPtr<IList>().pushBack(args[index].asString());
-                                break;
-                            case Json::ValueType::booleanValue:
-                                daqArg.asPtr<IList>().pushBack(args[index].asBool());
-                                break;
-                            default:
-                                std::cout << "Unsupported argument detected: " << valueType << std::endl;
-                        }
+    {
+        case Json::ValueType::nullValue:
+            std::cout << "Null argument type detected" << std::endl;
+            break;
+        case Json::ValueType::intValue:
+            daqArg.asPtr<IList>().pushBack(args[index].asInt());
+            break;
+        case Json::ValueType::uintValue:
+            daqArg.asPtr<IList>().pushBack(args[index].asUInt());
+            break;
+        case Json::ValueType::realValue:
+            daqArg.asPtr<IList>().pushBack(args[index].asDouble());
+            break;
+        case Json::ValueType::stringValue:
+            daqArg.asPtr<IList>().pushBack(args[index].asString());
+            break;
+        case Json::ValueType::booleanValue:
+            daqArg.asPtr<IList>().pushBack(args[index].asBool());
+            break;
+        default:
+            std::cout << "Unsupported argument detected: " << valueType << std::endl;
+    }
 }
 
+// TODO! arguments are not received from jet, need to find out why and fix
 void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property)
 {
     std::string path = jetStatePath + propertyPublisher.getGlobalId() + "/" + property.getName();
@@ -351,7 +352,7 @@ void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const Pro
     std::string methodName = property.getName();
     CoreType coreType = property.getValueType();
 
-    auto cb = [propertyPublisher, methodName, coreType, this]( const Json::Value& args)
+    auto cb = [propertyPublisher, methodName, coreType, this](const Json::Value& args) -> Json::Value
     {
         try
         {
@@ -377,23 +378,22 @@ void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const Pro
                 else
                     method.asPtr<IProcedure>()(daqArg);
 
-                return "Method called successfully\n";
+                return "Method called successfully";
             }
             if (coreType == ctFunc)
                 method.asPtr<IFunction>()();
             else
                 method.asPtr<IProcedure>()();
             
-            return "Method called successfully\n";
+            return "Method called successfully";
 
         }
         catch(...)
         {
-            return "Method called with failure\n";
+            return "Method called with failure";
         }
         
     };
-    
     jetPeer->addMethodAsync(path, hbk::jet::responseCallback_t(), cb);
 }
 
