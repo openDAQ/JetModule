@@ -73,8 +73,8 @@ void JetServer::createComponentListJetStates(const ListPtr<ComponentPtr>& compon
     }
 }
 
-template <typename PropertyHolderObject>
-void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const PropertyPtr& property, const PropertyHolderObject& propertyHolderObject)
+template <typename PropertyHolder>
+void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const PropertyPtr& property, const PropertyHolder& propertyHolder)
 {
     bool isSelectionProperty = determineSelectionProperty(property);
     std::string propertyName = property.getName();
@@ -82,7 +82,7 @@ void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const 
         // TODO
         // Every selection property has associated ctInt associated coretype, so to display actual values, std::string is used.
         // This could be changed.
-        std::string propertyValue = propertyHolderObject.getPropertySelectionValue(toStdString(property.getName().toString()));
+        std::string propertyValue = propertyHolder.getPropertySelectionValue(toStdString(property.getName().toString()));
         appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, propertyValue);
     }
     else {
@@ -90,23 +90,44 @@ void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const 
         int64_t propertyValueInt;
         double propertyValueFloat;
         StringPtr propertyValueString;
-        
+        CoreType listItemType;
+
         CoreType propertyType = property.getValueType();
         switch(propertyType) {
             case CoreType::ctBool:
-                propertyValueBool = propertyHolderObject.getPropertyValue(propertyName);
+                propertyValueBool = propertyHolder.getPropertyValue(propertyName);
                 appendPropertyToJsonValue<bool>(propertyPublisher, propertyName, propertyValueBool);
                 break;
             case CoreType::ctInt:
-                propertyValueInt = propertyHolderObject.getPropertyValue(propertyName);
+                propertyValueInt = propertyHolder.getPropertyValue(propertyName);
                 appendPropertyToJsonValue<int64_t>(propertyPublisher, propertyName, propertyValueInt);
                 break;
             case CoreType::ctFloat:
-                propertyValueFloat = propertyHolderObject.getPropertyValue(propertyName);
+                propertyValueFloat = propertyHolder.getPropertyValue(propertyName);
                 appendPropertyToJsonValue<double>(propertyPublisher, propertyName, propertyValueFloat);
                 break;
+            case CoreType::ctList:
+                listItemType = property.getItemType();
+                switch(listItemType)
+                {
+                    case CoreType::ctBool:
+                        appendListPropertyToJsonValue<bool>(propertyPublisher, property);
+                        break;
+                    case CoreType::ctInt:
+                        appendListPropertyToJsonValue<int>(propertyPublisher, property);
+                        break;
+                    case CoreType::ctFloat:
+                        appendListPropertyToJsonValue<float>(propertyPublisher, property);
+                        break;
+                    case CoreType::ctString:
+                        appendListPropertyToJsonValue<std::string>(propertyPublisher, property);
+                        break;
+                    default:
+                        std::cout << "Unsupported list item type: " << listItemType << std::endl;
+                }
+                break;
             case CoreType::ctString:
-                propertyValueString = propertyHolderObject.getPropertyValue(propertyName);
+                propertyValueString = propertyHolder.getPropertyValue(propertyName);
                 appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, toStdString(propertyValueString));
                 break;
             case CoreType::ctProc:
@@ -118,7 +139,7 @@ void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const 
             default:
                 std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
                 std::cout << "\"std::string\" will be used to store property value." << std::endl;
-                auto propertyValue = propertyHolderObject.getPropertyValue(propertyName);
+                auto propertyValue = propertyHolder.getPropertyValue(propertyName);
                 appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, propertyValue);
                 break;
         }
@@ -151,6 +172,20 @@ void JetServer::appendPropertyToJsonValue(const ComponentPtr& component, const s
 {
     std::string componentName = toStdString(component.getName());
     jsonValue[componentName][propertyName] = value;
+}
+
+template <typename ItemType>
+void JetServer::appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property)
+{
+    ListPtr<ItemType> propertyList = List<ItemType>();
+    std::string componentName = propertyHolder.getName();
+    std::string propertyName = property.getName();
+
+    propertyList = propertyHolder.getPropertyValue(propertyName);
+    for(ItemType item : propertyList)
+    {
+        jsonValue[componentName][propertyName].append(item);
+    }
 }
 
 void JetServer::appendMetadataToJsonValue(const ComponentPtr& component)
