@@ -24,7 +24,12 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
-#define SELECTION_PROPERTY_RETURN_VALUE 0xAA // randomly chosen value that determinePropertyType() returns when it encounters SelectionProperty
+enum JetModuleException : int
+{
+    JM_INCOMPATIBLE_TYPES = 0,
+    JM_UNSUPPORTED_JSON_TYPE,
+    JM_UNSUPPORTED_DAQ_TYPE
+};
 
 class JetServer
 {
@@ -73,7 +78,11 @@ private:
     void stopJetEventloop();
     void startJetEventloopThread();
 
-    void convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
+    ListPtr<BaseObjectPtr> convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
+
+    bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType);
+    void throwJetModuleException(JetModuleException jmException);
+    void throwJetModuleException(JetModuleException jmException, Json::ValueType jsonValueType, std::string propertyName, std::string globalId);
 };
 
 
