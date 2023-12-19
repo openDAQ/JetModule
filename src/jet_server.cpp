@@ -49,7 +49,7 @@ void JetServer::addJetState(const std::string& path)
             bool typesAreCompatible = checkTypeCompatibility(jsonValueType, property.getValueType());
             if(!typesAreCompatible)
             {
-                throwJetModuleException(JetModuleException::JM_INCOMPATIBLE_TYPES);
+                throwJetModuleException(JetModuleException::JM_INCOMPATIBLE_TYPES, propertyName);
                 continue;
             }
 
@@ -387,7 +387,7 @@ bool JetServer::checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreT
     {
         case Json::ValueType::intValue:
             {
-                if(daqValueType == CoreType::ctInt)
+                if(daqValueType == CoreType::ctInt || daqValueType == CoreType::ctFloat)
                     return true;
                 else
                     return false;
@@ -395,7 +395,7 @@ bool JetServer::checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreT
             break;
         case Json::ValueType::uintValue:
             {
-                if(daqValueType == CoreType::ctInt)
+                if(daqValueType == CoreType::ctInt || daqValueType == CoreType::ctFloat)
                     return true;
                 else
                     return false;
@@ -446,6 +446,28 @@ void JetServer::throwJetModuleException(JetModuleException jmException)
         case JetModuleException::JM_INCOMPATIBLE_TYPES:
             {
                 std::string message = "Incorrect type detected for openDAQ property";
+                std::cout << "addJetState cb: " << message << std::endl;
+                throw new hbk::jet::jsoncpprpcException(
+                    JM_INCOMPATIBLE_TYPES,                  // code
+                    message                                 // message
+                    // Json::Value()                        // data
+                );
+            }
+            break;
+        case JetModuleException::JM_UNSUPPORTED_JSON_TYPE:
+            break;
+        case JetModuleException::JM_UNSUPPORTED_DAQ_TYPE:
+            break;
+    }
+}
+
+void JetServer::throwJetModuleException(JetModuleException jmException, std::string propertyName)
+{
+    switch(jmException)
+    {
+        case JetModuleException::JM_INCOMPATIBLE_TYPES:
+            {
+                std::string message = "Incorrect type detected for openDAQ property: " + propertyName;
                 std::cout << "addJetState cb: " << message << std::endl;
                 throw new hbk::jet::jsoncpprpcException(
                     JM_INCOMPATIBLE_TYPES,                  // code
