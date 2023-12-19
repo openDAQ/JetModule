@@ -81,6 +81,7 @@ private:
 
     bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType);
     void throwJetModuleException(JetModuleException jmException);
+    void throwJetModuleException(JetModuleException jmException, std::string propertyName);
     void throwJetModuleException(JetModuleException jmException, Json::ValueType jsonValueType, std::string propertyName, std::string globalId);
 };
 
