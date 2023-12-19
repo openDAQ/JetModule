@@ -48,21 +48,18 @@ private:
     void createComponentListJetStates(const ListPtr<ComponentPtr>& componentList);
 
     template <typename PropertyHolder>
-    void createJsonProperty(const ComponentPtr& propertyPublisher, const PropertyPtr& property, const PropertyHolder& propertyHolder);
+    void createJsonProperty(const PropertyHolder& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
     void createJsonProperties(const ComponentPtr& component);
     template <typename ValueType>
     void appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);
     template <typename ItemType>
-    void appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property);
+    void appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
     void appendMetadataToJsonValue(const ComponentPtr& component);
     void addJetState(const std::string& path);
-
-    bool determineSelectionProperty(const PropertyPtr& property);
 
     bool propertyCallbacksCreated;
     void createCallbackForProperty(const PropertyPtr& property);
     
-    void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index);
     void createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property);
 
     DevicePtr rootDevice;
@@ -77,8 +74,6 @@ private:
     void startJetEventloop();
     void stopJetEventloop();
     void startJetEventloopThread();
-
-    ListPtr<BaseObjectPtr> convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
 
     bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType);
     void throwJetModuleException(JetModuleException jmException);

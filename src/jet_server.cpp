@@ -1,7 +1,8 @@
-#include "jet_server.h"
-#include "jet/defines.h"
 #include <iostream>
 #include <string>
+#include <jet/defines.h>
+#include "jet_server.h"
+#include "json_daq_conversion.h"
 
 BEGIN_NAMESPACE_JET_MODULE
 
@@ -124,55 +125,6 @@ void JetServer::addJetState(const std::string& path)
     jsonValue.clear();
 }
 
-ListPtr<BaseObjectPtr> JetServer::convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value)
-{
-    auto array = value.get(propertyName, "");
-    uint64_t arraySize = array.size();
-    Json::ValueType arrayElementType =  array[0].type();
-
-    ListPtr<BaseObjectPtr> daqArray;
-    switch(arrayElementType)
-    {
-        case Json::ValueType::nullValue:
-            std::cout << "Null type element detected in the array" << std::endl;
-            break;
-        case Json::ValueType::intValue:
-            daqArray = List<int>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asInt());
-            }
-            break;
-        case Json::ValueType::uintValue:
-            daqArray = List<uint>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asUInt());
-            }
-            break;
-        case Json::ValueType::realValue:
-            daqArray = List<double>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asDouble());
-            }
-            break;
-        case Json::ValueType::stringValue:
-            daqArray = List<std::string>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asString());
-            }
-            break;
-        case Json::ValueType::booleanValue:
-            daqArray = List<bool>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asBool());
-            }
-            break;
-        default:
-            std::cout << "Unsupported array element type detected: " << arrayElementType << std::endl;
-    }
-
-    return daqArray;
-}
-
 void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
 {
     ComponentPtr component = propertyObject.asPtr<IComponent>();
@@ -218,74 +170,92 @@ void JetServer::createComponentListJetStates(const ListPtr<ComponentPtr>& compon
 }
 
 template <typename PropertyHolder>
-void JetServer::createJsonProperty(const ComponentPtr& propertyPublisher, const PropertyPtr& property, const PropertyHolder& propertyHolder)
+void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
-    bool isSelectionProperty = determineSelectionProperty(property);
     std::string propertyName = property.getName();
-    bool propertyValueBool;
-    int64_t propertyValueInt;
-    double propertyValueFloat;
-    StringPtr propertyValueString;
-    CoreType listItemType;
-
     CoreType propertyType = property.getValueType();
+
     switch(propertyType) {
         case CoreType::ctBool:
-            propertyValueBool = propertyHolder.getPropertyValue(propertyName);
-            appendPropertyToJsonValue<bool>(propertyPublisher, propertyName, propertyValueBool);
+            {
+                bool propertyValue = propertyHolder.getPropertyValue(propertyName);
+                parentJsonValue[propertyName] = propertyValue;
+            }
             break;
         case CoreType::ctInt:
-            propertyValueInt = propertyHolder.getPropertyValue(propertyName);
-            appendPropertyToJsonValue<int64_t>(propertyPublisher, propertyName, propertyValueInt);
+            {
+                int64_t propertyValue = propertyHolder.getPropertyValue(propertyName);
+                parentJsonValue[propertyName] = propertyValue;
+            }
             break;
         case CoreType::ctFloat:
-            propertyValueFloat = propertyHolder.getPropertyValue(propertyName);
-            appendPropertyToJsonValue<double>(propertyPublisher, propertyName, propertyValueFloat);
+            {
+                double propertyValue = propertyHolder.getPropertyValue(propertyName);
+                parentJsonValue[propertyName] = propertyValue;
+            }
             break;
         case CoreType::ctList:
-            listItemType = property.getItemType();
-            switch(listItemType)
             {
-                case CoreType::ctBool:
-                    appendListPropertyToJsonValue<bool>(propertyPublisher, property);
-                    break;
-                case CoreType::ctInt:
-                    appendListPropertyToJsonValue<int>(propertyPublisher, property);
-                    break;
-                case CoreType::ctFloat:
-                    appendListPropertyToJsonValue<float>(propertyPublisher, property);
-                    break;
-                case CoreType::ctString:
-                    appendListPropertyToJsonValue<std::string>(propertyPublisher, property);
-                    break;
-                default:
-                    std::cout << "Unsupported list item type: " << listItemType << std::endl;
+                CoreType listItemType = property.getItemType();
+                switch(listItemType)
+                {
+                    case CoreType::ctBool:
+                        appendListPropertyToJsonValue<bool>(propertyHolder, property, parentJsonValue[propertyName]);
+                        break;
+                    case CoreType::ctInt:
+                        appendListPropertyToJsonValue<int>(propertyHolder, property, parentJsonValue[propertyName]);
+                        break;
+                    case CoreType::ctFloat:
+                        appendListPropertyToJsonValue<float>(propertyHolder, property, parentJsonValue[propertyName]);
+                        break;
+                    case CoreType::ctString:
+                        appendListPropertyToJsonValue<std::string>(propertyHolder, property, parentJsonValue[propertyName]);
+                        break;
+                    default:
+                        std::cout << "Unsupported list item type: " << listItemType << std::endl;
+                }
             }
             break;
         case CoreType::ctString:
-            propertyValueString = propertyHolder.getPropertyValue(propertyName);
-            appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, toStdString(propertyValueString));
+            {
+                std::string propertyValue = propertyHolder.getPropertyValue(propertyName);
+                parentJsonValue[propertyName] = propertyValue;
+            }
             break;
         case CoreType::ctProc:
-            createJetMethod(propertyPublisher, property);
+            createJetMethod(propertyHolder, property);
             break;
         case CoreType::ctFunc:
-            createJetMethod(propertyPublisher, property);
+            createJetMethod(propertyHolder, property);
+            break;
+        case CoreType::ctObject:
+            {
+                PropertyObjectPtr propertyObject = propertyHolder.getPropertyValue(propertyName);
+                std::string propertyObjectName = property.getName();
+
+                auto properties = propertyObject.getAllProperties();
+                for(auto property : properties)
+                {
+                    createJsonProperty<PropertyObjectPtr>(propertyObject, property, parentJsonValue[propertyObjectName]);
+                }
+            }
             break;
         default:
             std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
             std::cout << "\"std::string\" will be used to store property value." << std::endl;
             auto propertyValue = propertyHolder.getPropertyValue(propertyName);
-            appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, propertyValue);
+            // appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, propertyValue);
             break;
     }
 }
 
 void JetServer::createJsonProperties(const ComponentPtr& component)
 {
+    std::string propertyPublisherName = component.getName();
+
     auto properties = component.getAllProperties();
     for(auto property : properties) {
-        createJsonProperty<ComponentPtr>(component, property, component);
+        createJsonProperty<ComponentPtr>(component, property, jsonValue[propertyPublisherName]);
         if(!propertyCallbacksCreated)
             createCallbackForProperty(property);
     }
@@ -295,7 +265,7 @@ void JetServer::createJsonProperties(const ComponentPtr& component)
         auto deviceInfo = component.asPtr<IDevice>().getInfo();
         auto deviceInfoProperties = deviceInfo.getAllProperties();
         for(auto property : deviceInfoProperties) {
-            createJsonProperty<DeviceInfoPtr>(component, property, deviceInfo);
+            createJsonProperty<DeviceInfoPtr>(deviceInfo, property, jsonValue[propertyPublisherName]);
             if(!propertyCallbacksCreated)
                 createCallbackForProperty(property);
         }
@@ -310,16 +280,15 @@ void JetServer::appendPropertyToJsonValue(const ComponentPtr& component, const s
 }
 
 template <typename ItemType>
-void JetServer::appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property)
+void JetServer::appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
-    ListPtr<ItemType> propertyList = List<ItemType>();
-    std::string componentName = propertyHolder.getName();
     std::string propertyName = property.getName();
-
+    ListPtr<ItemType> propertyList = List<ItemType>();
     propertyList = propertyHolder.getPropertyValue(propertyName);
+
     for(ItemType item : propertyList)
     {
-        jsonValue[componentName][propertyName].append(item);
+        parentJsonValue.append(item);
     }
 }
 
@@ -332,44 +301,11 @@ void JetServer::appendMetadataToJsonValue(const ComponentPtr& component)
     jsonValue[componentName][globalIdString] = globalId;
 }
 
-bool JetServer::determineSelectionProperty(const PropertyPtr& property)
-{
-    return property.getSelectionValues().assigned() ? true : false;
-}
-
 void JetServer::createCallbackForProperty(const PropertyPtr& property)
 {
     property.getOnPropertyValueWrite() += [&](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) {
         updateJetState(obj);
     };
-}
-
-void JetServer::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index)
-{
-    Json::ValueType jsonValueType = args[index].type();
-    switch(jsonValueType)
-    {
-        case Json::ValueType::nullValue:
-            std::cout << "Null argument type detected" << std::endl;
-            break;
-        case Json::ValueType::intValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asInt());
-            break;
-        case Json::ValueType::uintValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asUInt());
-            break;
-        case Json::ValueType::realValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asDouble());
-            break;
-        case Json::ValueType::stringValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asString());
-            break;
-        case Json::ValueType::booleanValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asBool());
-            break;
-        default:
-            std::cout << "Unsupported argument detected: " << jsonValueType << std::endl;
-    }
 }
 
 // TODO! arguments are not received from jet, need to find out why and fix
