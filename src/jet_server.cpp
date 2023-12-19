@@ -138,7 +138,7 @@ void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
 {
     ComponentPtr component = propertyObject.asPtr<IComponent>();
     createJsonProperties(component);   
-    appendMetadataToJsonValue(component);
+    appendMetadataToJsonValue(component, jsonValue);
 
     std::string path = jetStatePath + component.getGlobalId();
     jetPeer->notifyState(path, jsonValue);
@@ -148,7 +148,7 @@ void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
 void JetServer::updateJetState(const ComponentPtr& component)
 {
     createJsonProperties(component);   
-    appendMetadataToJsonValue(component);
+    appendMetadataToJsonValue(component, jsonValue);
 
     std::string path = jetStatePath + component.getGlobalId();
     jetPeer->notifyState(path, jsonValue);
@@ -176,7 +176,7 @@ void JetServer::createComponentJetState(const ComponentPtr& component)
 {
     componentIdDict.set(component.getGlobalId(), component);
     createJsonProperties(component);   
-    appendMetadataToJsonValue(component);
+    appendMetadataToJsonValue(component, jsonValue);
     std::string path = jetStatePath + component.getGlobalId();
     addJetState(path);
 }   
@@ -274,7 +274,7 @@ void JetServer::createJsonProperties(const ComponentPtr& component)
 
     auto properties = component.getAllProperties();
     for(auto property : properties) {
-        createJsonProperty<ComponentPtr>(component, property, jsonValue[propertyPublisherName]);
+        createJsonProperty<ComponentPtr>(component, property, jsonValue);
         if(!propertyCallbacksCreated)
             createCallbackForProperty(property);
     }
@@ -284,7 +284,7 @@ void JetServer::createJsonProperties(const ComponentPtr& component)
         auto deviceInfo = component.asPtr<IDevice>().getInfo();
         auto deviceInfoProperties = deviceInfo.getAllProperties();
         for(auto property : deviceInfoProperties) {
-            createJsonProperty<DeviceInfoPtr>(deviceInfo, property, jsonValue[propertyPublisherName]);
+            createJsonProperty<DeviceInfoPtr>(deviceInfo, property, jsonValue);
             if(!propertyCallbacksCreated)
                 createCallbackForProperty(property);
         }
@@ -311,13 +311,13 @@ void JetServer::appendListPropertyToJsonValue(const ComponentPtr& propertyHolder
     }
 }
 
-void JetServer::appendMetadataToJsonValue(const ComponentPtr& component)
+void JetServer::appendMetadataToJsonValue(const ComponentPtr& component, Json::Value& parentJsonValue)
 {
     std::string componentName = toStdString(component.getName());
     std::string globalId = toStdString(component.getGlobalId());
     ConstCharPtr objectType = component.asPtr<ISerializable>().getSerializeId();
-    jsonValue[componentName][typeString] = objectType;
-    jsonValue[componentName][globalIdString] = globalId;
+    parentJsonValue[typeString] = objectType;
+    parentJsonValue[globalIdString] = globalId;
 }
 
 void JetServer::createCallbackForProperty(const PropertyPtr& property)
