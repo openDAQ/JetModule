@@ -56,7 +56,7 @@ private:
     void appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);
     template <typename ItemType>
     void appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
-    void appendMetadataToJsonValue(const ComponentPtr& component);
+    void appendMetadataToJsonValue(const ComponentPtr& component, Json::Value& parentJsonValue);
     void addJetState(const std::string& path);
 
     bool propertyCallbacksCreated;
