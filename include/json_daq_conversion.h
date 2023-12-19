@@ -24,3 +24,7 @@ using namespace daq;
 
 void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index);
 ListPtr<BaseObjectPtr> convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
+
+// Helper functions
+// TODO: move to separate header
+std::string removeSubstring(const std::string& originalString, const std::string& substring);

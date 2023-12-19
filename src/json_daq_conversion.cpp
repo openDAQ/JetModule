@@ -77,3 +77,14 @@ ListPtr<BaseObjectPtr> convertJsonToDaqArray(const ComponentPtr& propertyHolder,
 
     return daqArray;
 }
+
+std::string removeSubstring(const std::string& originalString, const std::string& substring) {
+    std::string modifiedString = originalString;
+    size_t pos = modifiedString.find(substring);
+
+    if (pos != std::string::npos) { // Check if the substring is found
+        modifiedString.erase(pos, substring.length());
+    }
+
+    return modifiedString;
+}

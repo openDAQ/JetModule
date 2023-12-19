@@ -41,9 +41,11 @@ public:
     explicit JetServer(const DevicePtr& device);
     ~JetServer();
     void publishJetStates();
-    void updateJetState(const PropertyObjectPtr& propertyObject);
 
 private:
+    void updateJetState(const PropertyObjectPtr& propertyObject);
+    void updateJetState(const ComponentPtr& component);
+
     void createComponentJetState(const ComponentPtr& component);
     void createComponentListJetStates(const ListPtr<ComponentPtr>& componentList);
 
@@ -67,6 +69,8 @@ private:
 
     Json::Value jsonValue;
     hbk::jet::PeerAsync* jetPeer;
+
+    bool jetStateUpdateDisabled;
 
     hbk::sys::EventLoop jetEventloop;
     bool jetEventloopRunning;
