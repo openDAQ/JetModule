@@ -10,6 +10,7 @@ JetServer::JetServer(const DevicePtr& device)
 {
     this->rootDevice = device;
     propertyCallbacksCreated = false;
+    jetStateUpdateDisabled = false;
     jetEventloopRunning = false;
 
     startJetEventloopThread();
@@ -28,8 +29,12 @@ void JetServer::addJetState(const std::string& path)
     auto cb = [this](const Json::Value& value, std::string path) -> Json::Value
     {
         std::cout << "Want to change state with path: " << path << " with the value " << value.toStyledString() << std::endl;
-        std::string globalId = value.get("Global ID", "").asString();
+        std::string globalId = removeSubstring(path, jetStatePath);
         ComponentPtr component = componentIdDict.get(globalId);
+
+        // We want to get one "jet state changed" event, so we have to disable state updates until we are finished with updates in opendaq
+        jetStateUpdateDisabled = true; 
+
         auto properties = component.getAllProperties();
         for(auto property : properties)
         {
@@ -116,7 +121,11 @@ void JetServer::addJetState(const std::string& path)
             {
                 throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE, jsonValueType, propertyName, globalId);
             }
-        } // for
+        }
+
+        jetStateUpdateDisabled = false;
+        updateJetState(component);
+
         std::cout << "Properties of " + globalId + " successfully updated" << std::endl;
         return Json::Value();
     };
@@ -128,6 +137,16 @@ void JetServer::addJetState(const std::string& path)
 void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
 {
     ComponentPtr component = propertyObject.asPtr<IComponent>();
+    createJsonProperties(component);   
+    appendMetadataToJsonValue(component);
+
+    std::string path = jetStatePath + component.getGlobalId();
+    jetPeer->notifyState(path, jsonValue);
+    jsonValue.clear();
+}
+
+void JetServer::updateJetState(const ComponentPtr& component)
+{
     createJsonProperties(component);   
     appendMetadataToJsonValue(component);
 
@@ -304,7 +323,8 @@ void JetServer::appendMetadataToJsonValue(const ComponentPtr& component)
 void JetServer::createCallbackForProperty(const PropertyPtr& property)
 {
     property.getOnPropertyValueWrite() += [&](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) {
-        updateJetState(obj);
+        if(!jetStateUpdateDisabled)
+            updateJetState(obj);
     };
 }
 
