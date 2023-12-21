@@ -24,13 +24,6 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
-enum JetModuleException : int
-{
-    JM_INCOMPATIBLE_TYPES = 0,
-    JM_UNSUPPORTED_JSON_TYPE,
-    JM_UNSUPPORTED_DAQ_TYPE
-};
-
 class JetServer
 {
 public:
@@ -78,11 +71,6 @@ private:
     void startJetEventloop();
     void stopJetEventloop();
     void startJetEventloopThread();
-
-    bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType);
-    void throwJetModuleException(JetModuleException jmException);
-    void throwJetModuleException(JetModuleException jmException, std::string propertyName);
-    void throwJetModuleException(JetModuleException jmException, Json::ValueType jsonValueType, std::string propertyName, std::string globalId);
 };
 
 
