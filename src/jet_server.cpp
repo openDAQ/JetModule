@@ -35,6 +35,8 @@ void JetServer::addJetState(const std::string& path)
 
         // We want to get one "jet state changed" event, so we have to disable state updates until we are finished with updates in opendaq
         jetStateUpdateDisabled = true; 
+        // We would like to have "jet state changed" event even if we change at least one property value, at the time when something fails
+        bool atLeastOnePropertyChanged = false;
 
         auto properties = component.getAllProperties();
         for(auto property : properties)
@@ -64,8 +66,12 @@ void JetServer::addJetState(const std::string& path)
                             int64_t oldValue = component.getPropertyValue(propertyName);
                             int64_t newValue = value.get(propertyName, "").asInt64(); 
                             if (oldValue != newValue)
+                            {
                                 component.setPropertyValue(propertyName, newValue);
-                            else std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                                atLeastOnePropertyChanged = true;
+                            }
+                            else 
+                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
                         }
                         break;
                     case Json::ValueType::uintValue:
@@ -73,8 +79,12 @@ void JetServer::addJetState(const std::string& path)
                             uint64_t oldValue = component.getPropertyValue(propertyName);
                             uint64_t newValue = value.get(propertyName, "").asUInt64();
                             if (oldValue != newValue)
+                            {
                                 component.setPropertyValue(propertyName, newValue);
-                            else std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                                atLeastOnePropertyChanged = true;
+                            }
+                            else 
+                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
                         }
                         break;
                     case Json::ValueType::realValue:
@@ -82,8 +92,12 @@ void JetServer::addJetState(const std::string& path)
                             double oldValue = component.getPropertyValue(propertyName);
                             double newValue = value.get(propertyName, "").asDouble();
                             if (oldValue != newValue)
+                            {
                                 component.setPropertyValue(propertyName, newValue);
-                            else std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                                atLeastOnePropertyChanged = true;
+                            }
+                            else 
+                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
                         }
                         break;
                     case Json::ValueType::stringValue:
@@ -91,8 +105,12 @@ void JetServer::addJetState(const std::string& path)
                             std::string oldValue = component.getPropertyValue(propertyName);
                             std::string newValue = value.get(propertyName, "").asString();
                             if (oldValue != newValue)
+                            {
                                 component.setPropertyValue(propertyName, newValue);
-                            else std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                                atLeastOnePropertyChanged = true;
+                            }
+                            else 
+                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
                         }
                         break;
                     case Json::ValueType::booleanValue:
@@ -100,8 +118,12 @@ void JetServer::addJetState(const std::string& path)
                             bool oldValue = component.getPropertyValue(propertyName);
                             bool newValue = value.get(propertyName, "").asBool();
                             if (oldValue != newValue)
+                            {
                                 component.setPropertyValue(propertyName, newValue);
-                            else std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                                atLeastOnePropertyChanged = true;
+                            }
+                            else 
+                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
                         }
                         break;
                     case Json::ValueType::arrayValue:
@@ -109,8 +131,12 @@ void JetServer::addJetState(const std::string& path)
                             ListPtr<BaseObjectPtr> oldDaqArray = component.getPropertyValue(propertyName);
                             ListPtr<BaseObjectPtr> newDaqArray = convertJsonArrayToDaqArray(component, propertyName, value);
                             if(oldDaqArray != newDaqArray)
+                            {
                                 component.setPropertyValue(propertyName, newDaqArray);
-                            else std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                                atLeastOnePropertyChanged = true;
+                            }
+                            else 
+                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
                         }
                         break;
                     case Json::ValueType::objectValue:
@@ -120,6 +146,8 @@ void JetServer::addJetState(const std::string& path)
                         }
                         break;
                     default:
+                        if(atLeastOnePropertyChanged == true)
+                            updateJetState(component);
                         throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE, jsonValueType, propertyName, globalId);
                         break;
                 }
