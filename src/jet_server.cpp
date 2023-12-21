@@ -254,6 +254,13 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
         case CoreType::ctFunc:
             createJetMethod(propertyHolder, property);
             break;
+        case CoreType::ctStruct:
+            {
+               // TODO! Currently we are handling struct properties as strings, which has to be changed!!!
+               std::string structValue = propertyHolder.getPropertyValue(propertyName);
+               parentJsonValue[propertyName] = structValue;
+            }
+            break;
         case CoreType::ctObject:
             {
                 PropertyObjectPtr propertyObject = propertyHolder.getPropertyValue(propertyName);
@@ -267,10 +274,12 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
             }
             break;
         default:
-            std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
-            std::cout << "\"std::string\" will be used to store property value." << std::endl;
-            auto propertyValue = propertyHolder.getPropertyValue(propertyName);
-            // appendPropertyToJsonValue<std::string>(propertyPublisher, propertyName, propertyValue);
+            {
+                std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
+                std::cout << "\"std::string\" will be used to store property value." << std::endl;
+                std::string propertyValue = propertyHolder.getPropertyValue(propertyName);
+                parentJsonValue[propertyName] = propertyValue;
+            }
             break;
     }
 }
