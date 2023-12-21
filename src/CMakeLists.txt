@@ -8,6 +8,7 @@ set(SRC_Include
     jet_module_impl.h
     json_daq_conversion.h
     jet_server.h
+    jet_module_exceptions.h
     version.h
 )
 
@@ -17,6 +18,7 @@ set(SRC_Srcs
     jet_module_impl.cpp
     json_daq_conversion.cpp
     jet_server.cpp
+    jet_module_exceptions.cpp
 )
 
 # Prepend path to header files
