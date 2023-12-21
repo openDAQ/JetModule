@@ -29,7 +29,7 @@ void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, c
     }
 }
 
-ListPtr<BaseObjectPtr> convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value)
+ListPtr<BaseObjectPtr> convertJsonArrayToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value)
 {
     auto array = value.get(propertyName, "");
     uint64_t arraySize = array.size();
@@ -76,6 +76,88 @@ ListPtr<BaseObjectPtr> convertJsonToDaqArray(const ComponentPtr& propertyHolder,
     }
 
     return daqArray;
+}
+
+void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Value& obj, const std::string& pathPrefix) 
+{
+    for (const auto& key : obj.getMemberNames()) {
+        const Json::Value& value = obj[key];
+
+        // Construct the path for the current element
+        std::string currentPath = pathPrefix + key;
+
+        if (value.isObject()) 
+        {
+            // Recursive call for nested objects
+            convertJsonObjectToDaqObject(component, value, currentPath + ".");
+        } 
+        else 
+        {
+            // Process the leaf element
+            std::cout << "Leaf Element at " << currentPath << ": " << value.toStyledString() << std::endl;
+            Json::ValueType jsonValueType = value.type();
+            switch(jsonValueType)
+            {
+                case Json::ValueType::intValue:
+                    {
+                        int64_t oldValue = component.getPropertyValue(currentPath);
+                        int64_t newValue = value.asInt64(); 
+                        if (oldValue != newValue)
+                            component.setPropertyValue(currentPath, newValue);
+                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                    }
+                    break;
+                case Json::ValueType::uintValue:
+                    {
+                        uint64_t oldValue = component.getPropertyValue(currentPath);
+                        uint64_t newValue = value.asUInt64();
+                        if (oldValue != newValue)
+                            component.setPropertyValue(currentPath, newValue);
+                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                    }
+                    break;
+                case Json::ValueType::realValue:
+                    {
+                        double oldValue = component.getPropertyValue(currentPath);
+                        double newValue = value.asDouble();
+                        if (oldValue != newValue)
+                            component.setPropertyValue(currentPath, newValue);
+                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                    }
+                    break;
+                case Json::ValueType::stringValue:
+                    {
+                        std::string oldValue = component.getPropertyValue(currentPath);
+                        std::string newValue = value.asString();
+                        if (oldValue != newValue)
+                            component.setPropertyValue(currentPath, newValue);
+                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                    }
+                    break;
+                case Json::ValueType::booleanValue:
+                    {
+                        bool oldValue = component.getPropertyValue(currentPath);
+                        bool newValue = value.asBool();
+                        if (oldValue != newValue)
+                            component.setPropertyValue(currentPath, newValue);
+                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                    }
+                    break;
+                case Json::ValueType::arrayValue:
+                    {
+                        ListPtr<BaseObjectPtr> oldDaqArray = component.getPropertyValue(currentPath);
+                        ListPtr<BaseObjectPtr> newDaqArray = convertJsonArrayToDaqArray(component, currentPath, value);
+                        if(oldDaqArray != newDaqArray)
+                            component.setPropertyValue(currentPath, newDaqArray);
+                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                    }
+                    break;
+                default:
+                    throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE);
+                    break;
+            }
+        }
+    }
 }
 
 std::string removeSubstring(const std::string& originalString, const std::string& substring) {
