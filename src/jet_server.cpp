@@ -107,10 +107,16 @@ void JetServer::addJetState(const std::string& path)
                     case Json::ValueType::arrayValue:
                         {
                             ListPtr<BaseObjectPtr> oldDaqArray = component.getPropertyValue(propertyName);
-                            ListPtr<BaseObjectPtr> newDaqArray = convertJsonToDaqArray(component, propertyName, value);
+                            ListPtr<BaseObjectPtr> newDaqArray = convertJsonArrayToDaqArray(component, propertyName, value);
                             if(oldDaqArray != newDaqArray)
                                 component.setPropertyValue(propertyName, newDaqArray);
                             else std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                        }
+                        break;
+                    case Json::ValueType::objectValue:
+                        {
+                            Json::Value obj = value.get(propertyName, Json::Value());
+                            convertJsonObjectToDaqObject(component, obj, propertyName + ".");
                         }
                         break;
                     default:

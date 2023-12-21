@@ -15,15 +15,14 @@
  */
 #pragma once
 #include <opendaq/device_impl.h>
-#include <hbk/sys/eventloop.h>
-#include <hbk/string/replace.h>
-#include <jet/peerasync.hpp>
-#include "json_daq_conversion.h"
+#include "jet_module_exceptions.h"
+#include <json/value.h>
 
 using namespace daq;
 
 void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index);
-ListPtr<BaseObjectPtr> convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
+ListPtr<BaseObjectPtr> convertJsonArrayToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
+void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Value& obj, const std::string& pathPrefix);
 
 // Helper functions
 // TODO: move to separate header
