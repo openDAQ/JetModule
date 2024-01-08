@@ -32,5 +32,26 @@
                 }
             ]
         },
+        {
+            "name": "Debug Tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/tests/JetModuleTests",
+            // "args": ["--gtest_filter=YourTestSuite.YourTest"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            // "preLaunchTask": "build", // This should match the label of your build task in tasks.json
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
     ]
 }
