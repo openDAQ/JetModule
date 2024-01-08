@@ -27,10 +27,6 @@ BEGIN_NAMESPACE_JET_MODULE
 class JetServer
 {
 public:
-    static constexpr char jetStatePath[] = "/daq/JetModule/";
-    static constexpr char globalIdString[] = "Global ID";
-    static constexpr char typeString[] = "_type";
-
     explicit JetServer(const DevicePtr& device);
     ~JetServer();
     void publishJetStates();
