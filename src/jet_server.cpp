@@ -466,4 +466,15 @@ void JetServer::startJetEventloopThread()
     jetEventloopThread = std::thread{ &JetServer::startJetEventloop, this };
 }
 
+StringPtr JetServer::getJetStatePath()
+{
+    return jetStatePath;
+}
+    
+void JetServer::setJetStatePath(StringPtr path)
+{
+    jetStatePath = path;
+}
+
+
 END_NAMESPACE_JET_MODULE
