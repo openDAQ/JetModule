@@ -193,18 +193,37 @@ void JetServer::updateJetState(const ComponentPtr& component)
 void JetServer::publishJetStates()
 {
     createComponentJetState(rootDevice);
-    auto devices = rootDevice.getDevices();
-    createComponentListJetStates(devices);
-    auto channels = rootDevice.getChannels();
-    createComponentListJetStates(channels);
-    auto functionBlocks = rootDevice.getFunctionBlocks();
-    createComponentListJetStates(functionBlocks);
-    auto customComponents = rootDevice.getCustomComponents();
-    createComponentListJetStates(customComponents);
-    auto signals = rootDevice.getSignals();
-    createComponentListJetStates(signals);
+    parseFolder(rootDevice);
 
     propertyCallbacksCreated = true;
+}
+
+void JetServer::parseFolder(const FolderPtr& parentFolder)
+{
+    auto items = parentFolder.getItems();
+    for(const auto& item : items)
+    {
+        auto folder = item.asPtrOrNull<IFolder>();
+        auto channel = item.asPtrOrNull<IChannel>();
+        auto component = item.asPtrOrNull<IComponent>();
+
+       if (channel.assigned())
+        {
+            createComponentJetState(channel);
+        }
+        else if (folder.assigned()) // It is important to test for folder last as a channel also is a folder!
+        {
+            parseFolder(folder); // Folders are recursively parsed until non-folder items are identified in them
+        }
+        else if (component.assigned())  // It is important to test for component after folder!
+        {
+            createComponentJetState(component);
+        }
+        else
+        {
+            throwJetModuleException(JM_UNSUPPORTED_ITEM);
+        }
+    }
 }
 
 void JetServer::createComponentJetState(const ComponentPtr& component)

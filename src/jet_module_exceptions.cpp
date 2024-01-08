@@ -89,6 +89,17 @@ void throwJetModuleException(JetModuleException jmException)
             break;
         case JetModuleException::JM_UNSUPPORTED_DAQ_TYPE:
             break;
+        case JetModuleException::JM_UNSUPPORTED_ITEM:
+           {
+                std::string message = "Unsupported openDAQ item";
+                std::cout << "addJetState cb: " << message << std::endl;
+                throw new hbk::jet::jsoncpprpcException(
+                    JM_UNSUPPORTED_ITEM,                  // code
+                    message                                 // message
+                    // Json::Value()                        // data
+                );
+            }
+            break;
     }
 }
 
