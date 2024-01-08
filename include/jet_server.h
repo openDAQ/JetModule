@@ -24,45 +24,37 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
-enum JetModuleException : int
-{
-    JM_INCOMPATIBLE_TYPES = 0,
-    JM_UNSUPPORTED_JSON_TYPE,
-    JM_UNSUPPORTED_DAQ_TYPE
-};
-
 class JetServer
 {
 public:
-    static constexpr char jetStatePath[] = "/daq/JetModule/";
-    static constexpr char globalIdString[] = "Global ID";
-    static constexpr char typeString[] = "_type";
-
     explicit JetServer(const DevicePtr& device);
     ~JetServer();
     void publishJetStates();
-    void updateJetState(const PropertyObjectPtr& propertyObject);
+    StringPtr getJetStatePath();
+    void setJetStatePath(StringPtr path);
 
 private:
+    void parseFolder(const FolderPtr& parentFolder);
+
+    void updateJetState(const PropertyObjectPtr& propertyObject);
+    void updateJetState(const ComponentPtr& component);
+
     void createComponentJetState(const ComponentPtr& component);
     void createComponentListJetStates(const ListPtr<ComponentPtr>& componentList);
 
     template <typename PropertyHolder>
-    void createJsonProperty(const ComponentPtr& propertyPublisher, const PropertyPtr& property, const PropertyHolder& propertyHolder);
+    void createJsonProperty(const PropertyHolder& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
     void createJsonProperties(const ComponentPtr& component);
     template <typename ValueType>
     void appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);
     template <typename ItemType>
-    void appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property);
-    void appendMetadataToJsonValue(const ComponentPtr& component);
+    void appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
+    void appendMetadataToJsonValue(const ComponentPtr& component, Json::Value& parentJsonValue);
     void addJetState(const std::string& path);
-
-    bool determineSelectionProperty(const PropertyPtr& property);
 
     bool propertyCallbacksCreated;
     void createCallbackForProperty(const PropertyPtr& property);
     
-    void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index);
     void createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property);
 
     DevicePtr rootDevice;
@@ -71,6 +63,8 @@ private:
     Json::Value jsonValue;
     hbk::jet::PeerAsync* jetPeer;
 
+    bool jetStateUpdateDisabled;
+
     hbk::sys::EventLoop jetEventloop;
     bool jetEventloopRunning;
     std::thread jetEventloopThread;
@@ -78,11 +72,7 @@ private:
     void stopJetEventloop();
     void startJetEventloopThread();
 
-    ListPtr<BaseObjectPtr> convertJsonToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
-
-    bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType);
-    void throwJetModuleException(JetModuleException jmException);
-    void throwJetModuleException(JetModuleException jmException, Json::ValueType jsonValueType, std::string propertyName, std::string globalId);
+    StringPtr jetStatePath = "/daq/JetModule/";
 };
 
 
