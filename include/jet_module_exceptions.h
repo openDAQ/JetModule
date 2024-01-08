@@ -21,7 +21,8 @@ enum JetModuleException : int
 {
     JM_INCOMPATIBLE_TYPES = 0,
     JM_UNSUPPORTED_JSON_TYPE,
-    JM_UNSUPPORTED_DAQ_TYPE
+    JM_UNSUPPORTED_DAQ_TYPE,
+    JM_UNSUPPORTED_ITEM
 };
 
 bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType);

@@ -36,6 +36,8 @@ public:
     void publishJetStates();
 
 private:
+    void parseFolder(const FolderPtr& parentFolder);
+
     void updateJetState(const PropertyObjectPtr& propertyObject);
     void updateJetState(const ComponentPtr& component);
 
