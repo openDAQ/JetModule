@@ -2,52 +2,26 @@
 #include "jet_server_test.h"
 
 // Checks whether all of the required Jet states are present
-TEST(TestJetServer, CheckStatePresence)
+TEST_F(JetServerTest, CheckStatePresence)
 {
-    // Create an openDAQ instance, loading modules at MODULE_PATH
-    const daq::InstancePtr instance = daq::Instance(MODULE_PATH);
-    // Add a reference device as root device
-    instance.setRootDevice("daqref://device0");
-    // Start streaming openDAQ OpcUa server
-    // instance.addServer("openDAQ OpcUa", nullptr);
-    // Get a root device from instance
-    auto rootDevice = instance.getRootDevice();
-
-    // Publish device structure as Jet states
-    JetServer myJet = JetServer(rootDevice);
-    myJet.publishJetStates();
+    myJet->publishJetStates();
     
     // Read Jet states
     readJetStates();
 
     // Check whether all of the Jet states are present
-    std::string jetStatePath = myJet.getJetStatePath();
-    std::string rootDeviceJetPath = jetStatePath + rootDevice.getGlobalId();
     ASSERT_EQ(jetStateExists(rootDeviceJetPath), true);
     parseFolder(rootDevice, jetStatePath);
 }
 
 // Ensures functionality of Boolean property
-TEST(TestJetServer, TestBoolProperty)
+TEST_F(JetServerTest, TestBoolProperty)
 {
-    // Create an openDAQ instance, loading modules at MODULE_PATH
-    const daq::InstancePtr instance = daq::Instance(MODULE_PATH);
-    // Add a reference device as root device
-    instance.setRootDevice("daqref://device0");
-    // Get a root device from instance
-    auto rootDevice = instance.getRootDevice();
-
     // Add bool property to the device
     std::string propertyName = "TestBool";
     rootDevice.addProperty(BoolProperty(propertyName, true));
 
-    // Publish device structure as Jet states
-    JetServer myJet = JetServer(rootDevice);
-    myJet.publishJetStates();
-
-    std::string jetStatePath = myJet.getJetStatePath();
-    std::string rootDeviceJetPath = jetStatePath + rootDevice.getGlobalId();
-
+    myJet->publishJetStates();
 
     // Check whether values are equal initially
     readJetStates();
@@ -90,26 +64,13 @@ TEST(TestJetServer, TestBoolProperty)
 }
 
 // Ensures functionality of Integer property
-TEST(TestJetServer, TestIntProperty)
+TEST_F(JetServerTest, TestIntProperty)
 {
-    // Create an openDAQ instance, loading modules at MODULE_PATH
-    const daq::InstancePtr instance = daq::Instance(MODULE_PATH);
-    // Add a reference device as root device
-    instance.setRootDevice("daqref://device0");
-    // Get a root device from instance
-    auto rootDevice = instance.getRootDevice();
-
     // Add bool property to the device
     std::string propertyName = "TestInt";
     rootDevice.addProperty(IntProperty(propertyName, 69420));
 
-    // Publish device structure as Jet states
-    JetServer myJet = JetServer(rootDevice);
-    myJet.publishJetStates();
-
-    std::string jetStatePath = myJet.getJetStatePath();
-    std::string rootDeviceJetPath = jetStatePath + rootDevice.getGlobalId();
-
+    myJet->publishJetStates();
 
     // Check whether values are equal initially
     readJetStates();

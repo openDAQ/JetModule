@@ -14,16 +14,33 @@ using namespace hbk::jet;
 // Json value which is published by JetModule
 Json::Value publishedJsonValue;
 static hbk::sys::EventLoop eventloop;
+
+class JetServerTest : public ::testing::Test {
+protected:
+    daq::InstancePtr instance;
+    daq::DevicePtr rootDevice;
+    JetServer* myJet;
+    std::string jetStatePath;
+    std::string rootDeviceJetPath;
+
+    virtual void SetUp() {
+        instance = daq::Instance(MODULE_PATH);
+        instance.setRootDevice("daqref://device0");
+        rootDevice = instance.getRootDevice();
+        myJet = new JetServer(rootDevice);
+        jetStatePath = toStdString(myJet->getJetStatePath());
+        rootDeviceJetPath = jetStatePath + toStdString(rootDevice.getGlobalId());
+    }
+
+    virtual void TearDown() {
+        delete myJet;
+    }
+};
+
 static void responseCb(const Json::Value& value)
 {
     // value contains the data as an array of objects
     publishedJsonValue = value[hbk::jsonrpc::RESULT];
-	// // value contains the data as an array of objects
-	// const Json::Value& resultArrary = value[hbk::jsonrpc::RESULT];
-	// for (const Json::Value &item: resultArrary) {
-	// 	std::cout << "path " << item[hbk::jet::PATH] << std::endl;
-	// 	std::cout << "value " << item[hbk::jet::VALUE] << std::endl;
-	// }
 	// stop whole program afterwards
 	eventloop.stop();
 }
@@ -58,7 +75,6 @@ void modifyJetState(const char* valueType, const std::string& path, const char* 
         else 
         {
             std::cerr << "invalid value for boolean expecting 'true'', or 'false'" << std::endl;
-            // return EXIT_FAILURE;
         }
     } 
     else if(strcmp(valueType,"int")==0) 
@@ -87,7 +103,6 @@ void modifyJetState(const char* valueType, const std::string& path, const char* 
         else 
         {
             std::cerr << "error while parsing json!" << std::endl;
-            // return EXIT_FAILURE;
         }
     }
 }
