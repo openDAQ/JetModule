@@ -303,9 +303,75 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
             break;
         case CoreType::ctStruct:
             {
-               // TODO! Currently we are handling struct properties as strings, which has to be changed!!!
-               std::string structValue = propertyHolder.getPropertyValue(propertyName);
-               parentJsonValue[propertyName] = structValue;
+                StructPtr propertyStruct = propertyHolder.getPropertyValue(propertyName);
+                ListPtr<IString> fieldNames = propertyStruct.getFieldNames();
+                ListPtr<IBaseObject> fieldValues = propertyStruct.getFieldValues();
+
+                for(int i = 0; i < fieldNames.getCount(); i++)
+                {
+                    CoreType structfieldType = fieldValues[i].getCoreType();
+                    switch(structfieldType)
+                    {
+                        case CoreType::ctBool:
+                            {
+                                bool fieldValue = fieldValues[i];
+                                parentJsonValue[propertyName][toStdString(fieldNames[i])] = fieldValue;
+                            }
+                            break;
+                        case CoreType::ctInt:
+                            {
+                                int64_t fieldValue = fieldValues[i];
+                                parentJsonValue[propertyName][toStdString(fieldNames[i])] = fieldValue;
+                            }
+                            break;
+                        case CoreType::ctFloat:
+                            {
+                                double fieldValue = fieldValues[i];
+                                parentJsonValue[propertyName][toStdString(fieldNames[i])] = fieldValue;
+                            }
+                            break;
+                        case CoreType::ctString:
+                            {
+                                std::string fieldValue = fieldValues[i];
+                                parentJsonValue[propertyName][toStdString(fieldNames[i])] = fieldValue;
+                            }
+                            break;
+                        case CoreType::ctList:
+                            {
+                                ListPtr<IBaseObject> fieldValue = fieldValues[i];
+                                CoreType listItemType = fieldValue.asPtr<IProperty>().getItemType();
+                                switch(listItemType)
+                                {
+                                    case CoreType::ctBool:
+                                        appendListPropertyToJsonValue<bool>(propertyHolder, property, parentJsonValue[propertyName][toStdString(fieldNames[i])]);
+                                        break;
+                                    case CoreType::ctInt:
+                                        appendListPropertyToJsonValue<int>(propertyHolder, property, parentJsonValue[propertyName][toStdString(fieldNames[i])]);
+                                        break;
+                                    case CoreType::ctFloat:
+                                        appendListPropertyToJsonValue<float>(propertyHolder, property, parentJsonValue[propertyName][toStdString(fieldNames[i])]);
+                                        break;
+                                    case CoreType::ctString:
+                                        appendListPropertyToJsonValue<std::string>(propertyHolder, property, parentJsonValue[propertyName][toStdString(fieldNames[i])]);
+                                        break;
+                                    default:
+                                        std::cout << "Unsupported list item type: " << listItemType << std::endl;
+                                    break;
+                                }
+                            }
+                        case CoreType::ctDict:
+                            break;
+                        case CoreType::ctRatio:
+                            break;
+                        case CoreType::ctComplexNumber:
+                            break;
+                        default:
+                            std::cout << "Unsupported struct field type: " << structfieldType << std::endl;
+                    }
+                }
+
+                std::string structValue = propertyHolder.getPropertyValue(propertyName);
+                parentJsonValue[propertyName] = structValue;
             }
             break;
         case CoreType::ctObject:
