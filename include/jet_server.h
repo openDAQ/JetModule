@@ -17,14 +17,14 @@
 #include <thread>
 #include "common.h"
 #include <opendaq/device_impl.h>
-
 #include "hbk/sys/eventloop.h"
 #include "hbk/string/replace.h"
 #include "jet/peerasync.hpp"
+#include "jet_server_base.h"
 
 BEGIN_NAMESPACE_JET_MODULE
 
-class JetServer
+class JetServer : public JetServerBase
 {
 public:
     explicit JetServer(const DevicePtr& device);

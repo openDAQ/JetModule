@@ -1,13 +1,18 @@
 #include <iostream>
-#include "json_daq_conversion.h"
+#include "jet_server_base.h"
 
-void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index)
+BEGIN_NAMESPACE_JET_MODULE
+
+void JetServerBase::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index)
 {
     Json::ValueType jsonValueType = args[index].type();
     switch(jsonValueType)
     {
         case Json::ValueType::nullValue:
-            std::cout << "Null argument type detected" << std::endl;
+            {
+                std::string message = "Null argument type detected!\n";
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+            }
             break;
         case Json::ValueType::intValue:
             daqArg.asPtr<IList>().pushBack(args[index].asInt());
@@ -25,11 +30,14 @@ void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, c
             daqArg.asPtr<IList>().pushBack(args[index].asBool());
             break;
         default:
-            std::cout << "Unsupported argument detected: " << jsonValueType << std::endl;
+        {
+            std::string message = "Unsupported argument detected: " + jsonValueType + '\n';
+            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+        }
     }
 }
 
-ListPtr<BaseObjectPtr> convertJsonArrayToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value)
+ListPtr<BaseObjectPtr> JetServerBase::convertJsonArrayToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value)
 {
     auto array = value.get(propertyName, "");
     uint64_t arraySize = array.size();
@@ -39,7 +47,10 @@ ListPtr<BaseObjectPtr> convertJsonArrayToDaqArray(const ComponentPtr& propertyHo
     switch(arrayElementType)
     {
         case Json::ValueType::nullValue:
-            std::cout << "Null type element detected in the array" << std::endl;
+            {
+                std::string message = "Null type element detected in the array!\n";
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+            }
             break;
         case Json::ValueType::intValue:
             daqArray = List<int>();
@@ -72,13 +83,16 @@ ListPtr<BaseObjectPtr> convertJsonArrayToDaqArray(const ComponentPtr& propertyHo
             }
             break;
         default:
-            std::cout << "Unsupported array element type detected: " << arrayElementType << std::endl;
+            {
+                std::string message = "Unsupported array element type detected: " + arrayElementType + '\n';
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+            }
     }
 
     return daqArray;
 }
 
-void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Value& obj, const std::string& pathPrefix) 
+void JetServerBase::convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Value& obj, const std::string& pathPrefix) 
 {
     for (const auto& key : obj.getMemberNames()) {
         const Json::Value& value = obj[key];
@@ -93,8 +107,9 @@ void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Val
         } 
         else 
         {
+            std::string logMessage = "Value for " + currentPath + " has not changed. Skipping...\n";
+
             // Process the leaf element
-            std::cout << "Leaf Element at " << currentPath << ": " << value.toStyledString() << std::endl;
             Json::ValueType jsonValueType = value.type();
             switch(jsonValueType)
             {
@@ -104,7 +119,8 @@ void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Val
                         int64_t newValue = value.asInt64(); 
                         if (oldValue != newValue)
                             component.setPropertyValue(currentPath, newValue);
-                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                        else 
+                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
                     }
                     break;
                 case Json::ValueType::uintValue:
@@ -113,7 +129,8 @@ void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Val
                         uint64_t newValue = value.asUInt64();
                         if (oldValue != newValue)
                             component.setPropertyValue(currentPath, newValue);
-                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                        else
+                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
                     }
                     break;
                 case Json::ValueType::realValue:
@@ -122,7 +139,8 @@ void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Val
                         double newValue = value.asDouble();
                         if (oldValue != newValue)
                             component.setPropertyValue(currentPath, newValue);
-                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                        else
+                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
                     }
                     break;
                 case Json::ValueType::stringValue:
@@ -131,7 +149,8 @@ void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Val
                         std::string newValue = value.asString();
                         if (oldValue != newValue)
                             component.setPropertyValue(currentPath, newValue);
-                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                        else
+                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
                     }
                     break;
                 case Json::ValueType::booleanValue:
@@ -140,16 +159,18 @@ void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Val
                         bool newValue = value.asBool();
                         if (oldValue != newValue)
                             component.setPropertyValue(currentPath, newValue);
-                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                        else
+                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
                     }
                     break;
                 case Json::ValueType::arrayValue:
                     {
                         ListPtr<BaseObjectPtr> oldDaqArray = component.getPropertyValue(currentPath);
-                        ListPtr<BaseObjectPtr> newDaqArray = convertJsonArrayToDaqArray(component, currentPath, value);
+                        ListPtr<BaseObjectPtr> newDaqArray = this->convertJsonArrayToDaqArray(component, currentPath, value);
                         if(oldDaqArray != newDaqArray)
                             component.setPropertyValue(currentPath, newDaqArray);
-                        else std::cout << "Value for " << currentPath << " has not changed. Skipping.." << std::endl;
+                        else
+                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
                     }
                     break;
                 default:
@@ -160,7 +181,9 @@ void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Val
     }
 }
 
-std::string removeSubstring(const std::string& originalString, const std::string& substring) {
+// Helper function
+std::string JetServerBase::removeSubstring(const std::string& originalString, const std::string& substring) 
+{
     std::string modifiedString = originalString;
     size_t pos = modifiedString.find(substring);
 
@@ -170,3 +193,5 @@ std::string removeSubstring(const std::string& originalString, const std::string
 
     return modifiedString;
 }
+
+END_NAMESPACE_JET_MODULE
