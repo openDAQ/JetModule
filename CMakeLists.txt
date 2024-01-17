@@ -20,6 +20,7 @@ add_subdirectory(dependencies/jsoncpp)
 add_subdirectory(dependencies/libhbk)
 add_subdirectory(dependencies/pugixml)
 add_subdirectory(dependencies/jetpeer-cpp)
+add_subdirectory(dependencies/gtest)
 
 add_subdirectory(src)
 if (JET_MODULE_ENABLE_TESTS)
