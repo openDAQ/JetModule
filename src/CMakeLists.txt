@@ -6,7 +6,7 @@ set(SRC_Include
     common.h
     module_dll.h
     jet_module_impl.h
-    json_daq_conversion.h
+    jet_server_base.h
     jet_server.h
     jet_module_exceptions.h
     version.h
@@ -16,7 +16,7 @@ set(SRC_Include
 set(SRC_Srcs 
     module_dll.cpp
     jet_module_impl.cpp
-    json_daq_conversion.cpp
+    jet_server_base.cpp
     jet_server.cpp
     jet_module_exceptions.cpp
 )

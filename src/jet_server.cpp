@@ -2,7 +2,6 @@
 #include <string>
 #include <jet/defines.h>
 #include "jet_server.h"
-#include "json_daq_conversion.h"
 #include "jet_module_exceptions.h"
 
 BEGIN_NAMESPACE_JET_MODULE
@@ -13,6 +12,9 @@ JetServer::JetServer(const DevicePtr& device)
     propertyCallbacksCreated = false;
     jetStateUpdateDisabled = false;
     jetEventloopRunning = false;
+
+    // initiate openDAQ logger
+    logger = LoggerComponent("JetModuleLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
 
     startJetEventloopThread();
     jetPeer = new hbk::jet::PeerAsync(jetEventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
@@ -29,7 +31,8 @@ void JetServer::addJetState(const std::string& path)
 {
     auto cb = [this](const Json::Value& value, std::string path) -> Json::Value
     {
-        std::cout << "Want to change state with path: " << path << " with the value " << value.toStyledString() << std::endl;
+        std::string message = "Want to change state with path: " + path + " with the value " + value.toStyledString() + "\n";
+        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
         std::string globalId = removeSubstring(path, jetStatePath);
         ComponentPtr component = componentIdDict.get(globalId);
 
@@ -44,7 +47,8 @@ void JetServer::addJetState(const std::string& path)
             std::string propertyName = property.getName();
             if (!value.isMember(propertyName))
             {
-                std::cout << "addJetState: skipping property " << propertyName << std::endl;
+                std::string message = "Skipping property " + propertyName + "\n";
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
                 continue;
             }
 
@@ -56,7 +60,8 @@ void JetServer::addJetState(const std::string& path)
                 continue;
             }
 
-            std::cout << "addJetState: Changing value for property " << propertyName << ", type: " << jsonValueType << std::endl;
+            std::string message = "Changing value for property " + propertyName + "\n";
+            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
             try
             {
                 switch(jsonValueType)
@@ -70,8 +75,11 @@ void JetServer::addJetState(const std::string& path)
                                 component.setPropertyValue(propertyName, newValue);
                                 atLeastOnePropertyChanged = true;
                             }
-                            else 
-                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                            else
+                            {
+                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
+                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                            }
                         }
                         break;
                     case Json::ValueType::uintValue:
@@ -83,8 +91,11 @@ void JetServer::addJetState(const std::string& path)
                                 component.setPropertyValue(propertyName, newValue);
                                 atLeastOnePropertyChanged = true;
                             }
-                            else 
-                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                            else
+                            {
+                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
+                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                            }
                         }
                         break;
                     case Json::ValueType::realValue:
@@ -96,8 +107,11 @@ void JetServer::addJetState(const std::string& path)
                                 component.setPropertyValue(propertyName, newValue);
                                 atLeastOnePropertyChanged = true;
                             }
-                            else 
-                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                            else
+                            {
+                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
+                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                            }
                         }
                         break;
                     case Json::ValueType::stringValue:
@@ -109,8 +123,11 @@ void JetServer::addJetState(const std::string& path)
                                 component.setPropertyValue(propertyName, newValue);
                                 atLeastOnePropertyChanged = true;
                             }
-                            else 
-                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                            else
+                            {
+                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
+                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                            }
                         }
                         break;
                     case Json::ValueType::booleanValue:
@@ -122,8 +139,11 @@ void JetServer::addJetState(const std::string& path)
                                 component.setPropertyValue(propertyName, newValue);
                                 atLeastOnePropertyChanged = true;
                             }
-                            else 
-                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                            else
+                            {
+                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
+                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                            }
                         }
                         break;
                     case Json::ValueType::arrayValue:
@@ -135,8 +155,11 @@ void JetServer::addJetState(const std::string& path)
                                 component.setPropertyValue(propertyName, newDaqArray);
                                 atLeastOnePropertyChanged = true;
                             }
-                            else 
-                                std::cout << "Value for " << propertyName << " has not changed. Skipping.." << std::endl;
+                            else
+                            {
+                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
+                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                            }
                         }
                         break;
                     case Json::ValueType::objectValue:
@@ -160,8 +183,6 @@ void JetServer::addJetState(const std::string& path)
 
         jetStateUpdateDisabled = false;
         updateJetState(component);
-
-        std::cout << "Properties of " + globalId + " successfully updated" << std::endl;
         return Json::Value();
     };
 
@@ -285,7 +306,10 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
                         appendListPropertyToJsonValue<std::string>(propertyHolder, property, parentJsonValue[propertyName]);
                         break;
                     default:
-                        std::cout << "Unsupported list item type: " << listItemType << std::endl;
+                        {
+                            std::string message = "Unsupported list item type: " + listItemType + '\n';
+                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                        }
                 }
             }
             break;
@@ -355,7 +379,10 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
                                         appendListPropertyToJsonValue<std::string>(propertyHolder, property, parentJsonValue[propertyName][toStdString(fieldNames[i])]);
                                         break;
                                     default:
-                                        std::cout << "Unsupported list item type: " << listItemType << std::endl;
+                                        {
+                                            std::string message = "Unsupported list item type: " + listItemType + '\n';
+                                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                                        }
                                     break;
                                 }
                             }
@@ -366,7 +393,10 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
                         case CoreType::ctComplexNumber:
                             break;
                         default:
-                            std::cout << "Unsupported struct field type: " << structfieldType << std::endl;
+                            {
+                                std::string message = "Unsupported struct field type: " + structfieldType + '\n';
+                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                            }
                     }
                 }
 
@@ -388,8 +418,10 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
             break;
         default:
             {
-                std::cout << "Unsupported value type \"" << propertyType << "\" of Property: " << propertyName << std::endl;
-                std::cout << "\"std::string\" will be used to store property value." << std::endl;
+                std::string message = "Unsupported value type of Property: " + propertyName + '\n';
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+                message = "\"std::string\" will be used to store property value.\n";
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
                 std::string propertyValue = propertyHolder.getPropertyValue(propertyName);
                 parentJsonValue[propertyName] = propertyValue;
             }

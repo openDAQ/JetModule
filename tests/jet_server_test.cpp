@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include "jet_server_test.h"
-#include "json_daq_conversion.h"
 
 // Checks whether all of the required Jet states are present
 TEST_F(JetServerTest, CheckStatePresence)
@@ -127,7 +126,7 @@ TEST_F(JetServerTest, TestStringProperty)
     for (const Json::Value& item : publishedJsonValue) {
         if(item[hbk::jet::PATH] == rootDeviceJetPath)
         {
-            std::string valueInJet = item[hbk::jet::VALUE].get(propertyName, "").asString(); // in openDAQ ctFloat CoreType is actually double
+            std::string valueInJet = item[hbk::jet::VALUE].get(propertyName, "").asString();
             std::string valueInOpendaq = rootDevice.getPropertyValue(propertyName);
             ASSERT_EQ(valueInJet, valueInOpendaq);
         }
@@ -225,7 +224,7 @@ TEST_F(JetServerTest, TestListProperty)
     for (const Json::Value& item : publishedJsonValue) {
         if(item[hbk::jet::PATH] == rootDeviceJetPath)
         {
-            ListPtr<BaseObjectPtr> valueInJet = convertJsonArrayToDaqArray(rootDevice, propertyName, item[hbk::jet::VALUE]);//item[hbk::jet::VALUE].get(propertyName, "").as(); // in openDAQ ctFloat CoreType is actually double
+            ListPtr<BaseObjectPtr> valueInJet = myJet->convertJsonArrayToDaqArray(rootDevice, propertyName, item[hbk::jet::VALUE]);
             ListPtr<BaseObjectPtr> valueInOpendaq = rootDevice.getPropertyValue(propertyName);
             ASSERT_EQ(valueInJet, valueInOpendaq);
         }
@@ -237,7 +236,7 @@ TEST_F(JetServerTest, TestListProperty)
     for (const Json::Value& item : publishedJsonValue) {
         if(item[hbk::jet::PATH] == rootDeviceJetPath)
         {
-            ListPtr<BaseObjectPtr> valueInJet = convertJsonArrayToDaqArray(rootDevice, propertyName, item[hbk::jet::VALUE]);
+            ListPtr<BaseObjectPtr> valueInJet = myJet->convertJsonArrayToDaqArray(rootDevice, propertyName, item[hbk::jet::VALUE]);
             ListPtr<BaseObjectPtr> valueInOpendaq = rootDevice.getPropertyValue(propertyName);
             EXPECT_EQ(valueInJet, valueInOpendaq);
         }
@@ -258,7 +257,7 @@ TEST_F(JetServerTest, TestListProperty)
     for (const Json::Value& item : publishedJsonValue) {
         if(item[hbk::jet::PATH] == rootDeviceJetPath)
         {
-            ListPtr<BaseObjectPtr> valueInJet = convertJsonArrayToDaqArray(rootDevice, propertyName, item[hbk::jet::VALUE]);
+            ListPtr<BaseObjectPtr> valueInJet = myJet->convertJsonArrayToDaqArray(rootDevice, propertyName, item[hbk::jet::VALUE]);
             ListPtr<BaseObjectPtr> valueInOpendaq = rootDevice.getPropertyValue(propertyName);
             EXPECT_EQ(valueInJet, valueInOpendaq);
         }
