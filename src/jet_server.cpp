@@ -476,38 +476,43 @@ void JetServer::appendMetadataToJsonValue(const ComponentPtr& component, Json::V
 
     if(strcmp(component.asPtr<ISerializable>().getSerializeId(), "Device") == 0)
     {   
-        // Device Info
-        // Checking whether the component is a device. If it's a device we have to get deviceInfo properties manually
-        auto deviceInfo = component.asPtr<IDevice>().getInfo();
-        auto deviceInfoProperties = deviceInfo.getAllProperties();
-        for(auto property : deviceInfoProperties) 
-        {
-            createJsonProperty<DeviceInfoPtr>(deviceInfo, property, jsonValue);
-            if(!propertyCallbacksCreated)
-                createCallbackForProperty(property);
-        }
-        
-        // Device Domain
-        DeviceDomainPtr domain = component.asPtr<IDevice>().getDomain();
-        RatioPtr tickResolution = domain.getTickResolution();
-            int64_t numerator = tickResolution.getNumerator();
-            int64_t denominator = tickResolution.getDenominator();
-            parentJsonValue["Domain"]["Resolution"]["Numerator"] = numerator;
-            parentJsonValue["Domain"]["Resolution"]["Denominator"] = denominator;
-        uint64_t ticksSinceResolution = domain.getTicksSinceOrigin();
-            parentJsonValue["Domain"]["TicksSinceOrigin"] = ticksSinceResolution;
-        std::string origin = domain.getOrigin();
-            parentJsonValue["Domain"]["Origin"] = origin;
-        UnitPtr unit = domain.getUnit();
-            int64_t id = unit.getId();
-            std::string name = unit.getName();
-            std::string quantity = unit.getQuantity();
-            std::string symbol = unit.getSymbol();
-            parentJsonValue["Domain"]["Unit"]["UnitId"] = id;
-            parentJsonValue["Domain"]["Unit"]["Description"] = name;
-            parentJsonValue["Domain"]["Unit"]["Quantity"] = quantity;
-            parentJsonValue["Domain"]["Unit"]["DisplayName"] = symbol;
+        createDeviceMetadataJson(component, parentJsonValue);
     }
+}
+
+void JetServer::createDeviceMetadataJson(ComponentPtr component, Json::Value& parentJsonValue)
+{
+    // Device Info
+    // Checking whether the component is a device. If it's a device we have to get deviceInfo properties manually
+    auto deviceInfo = component.asPtr<IDevice>().getInfo();
+    auto deviceInfoProperties = deviceInfo.getAllProperties();
+    for(auto property : deviceInfoProperties) 
+    {
+        createJsonProperty<DeviceInfoPtr>(deviceInfo, property, jsonValue);
+        if(!propertyCallbacksCreated)
+            createCallbackForProperty(property);
+    }
+    
+    // Device Domain
+    DeviceDomainPtr domain = component.asPtr<IDevice>().getDomain();
+    RatioPtr tickResolution = domain.getTickResolution();
+        int64_t numerator = tickResolution.getNumerator();
+        int64_t denominator = tickResolution.getDenominator();
+        parentJsonValue["Domain"]["Resolution"]["Numerator"] = numerator;
+        parentJsonValue["Domain"]["Resolution"]["Denominator"] = denominator;
+    uint64_t ticksSinceResolution = domain.getTicksSinceOrigin();
+        parentJsonValue["Domain"]["TicksSinceOrigin"] = ticksSinceResolution;
+    std::string origin = domain.getOrigin();
+        parentJsonValue["Domain"]["Origin"] = origin;
+    UnitPtr unit = domain.getUnit();
+        int64_t id = unit.getId();
+        std::string name = unit.getName();
+        std::string quantity = unit.getQuantity();
+        std::string symbol = unit.getSymbol();
+        parentJsonValue["Domain"]["Unit"]["UnitId"] = id;
+        parentJsonValue["Domain"]["Unit"]["Description"] = name;
+        parentJsonValue["Domain"]["Unit"]["Quantity"] = quantity;
+        parentJsonValue["Domain"]["Unit"]["DisplayName"] = symbol;
 }
 
 void JetServer::createCallbackForProperty(const PropertyPtr& property)
