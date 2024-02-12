@@ -47,11 +47,48 @@ private:
     void createJsonProperties(const ComponentPtr& component);
     template <typename ValueType>
     void appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);
-    template <typename ItemType>
-    void appendListPropertyToJsonValue(const ComponentPtr& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
-    void createDeviceMetadataJson(ComponentPtr component, Json::Value& parentJsonValue);
-    void appendMetadataToJsonValue(const ComponentPtr& component, Json::Value& parentJsonValue);
     void addJetState(const std::string& path);
+
+
+    // Append properties to Json value
+    template<typename PropertyHolderType, typename DataType>
+    void appendSimpleProperty(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue);
+    template<typename PropertyHolderType>
+    void appendListProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
+    template<typename PropertyHolderType>
+    void appendDictProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
+    template<typename PropertyHolderType>
+    void appendObjectProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
+    template<typename PropertyHolderType>
+    void appendRatioProperty(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue);
+    template<typename PropertyHolderType>
+    void appendComplexNumber(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue);
+    template<typename PropertyHolderType>
+    void appendStructProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
+
+    // List and Dict property helper functions
+    template <typename PropertyHolderType, typename ItemType>
+    void fillListProperty(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue);
+    template <typename PropertyHolderType>
+    void fillListPropertyWithRatio(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue);
+    template <typename PropertyHolderType, typename KeyType>
+    void determineDictItemType(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
+    template <typename PropertyHolderType, typename KeyType, typename ItemType>
+    void fillDictProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
+
+    // Append other objects to Json value
+    void appendDeviceMetadata(const DevicePtr& device, Json::Value& parentJsonValue);
+    void appendDeviceDomain(const DevicePtr& device, Json::Value& parentJsonValue);
+    void appendFunctionBlockInfo(const FunctionBlockPtr& functionBlock, Json::Value& parentJsonValue);
+    void appendInputPorts(const FunctionBlockPtr& functionBlock, Json::Value& parentJsonValue);
+    template <typename ObjectType>
+    void appendOutputSignals(const ObjectType& object, Json::Value& parentJsonValue);
+
+    // Append common metadata to Json value
+    void appendGlobalId(const ComponentPtr& component, Json::Value& parentJsonValue);
+    void appendObjectType(const ComponentPtr& component, Json::Value& parentJsonValue);
+    void appendActiveStatus(const ComponentPtr& component, Json::Value& parentJsonValue);
+    void appendTags(const ComponentPtr& component, Json::Value& parentJsonValue);
 
     bool propertyCallbacksCreated;
     void createCallbackForProperty(const PropertyPtr& property);
@@ -73,7 +110,7 @@ private:
     void stopJetEventloop();
     void startJetEventloopThread();
 
-    StringPtr jetStatePath = "/daq/JetModule/";
+    StringPtr jetStatePath = "/daq/JetModule";
 };
 
 
