@@ -33,8 +33,7 @@ void JetServer::addJetState(const std::string& path)
     {
         std::string message = "Want to change state with path: " + path + " with the value " + value.toStyledString() + "\n";
         logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-        std::string globalId = removeSubstring(path, jetStatePath);
-        ComponentPtr component = componentIdDict.get(globalId);
+        ComponentPtr component = componentIdDict.get(path);
 
         // We want to get one "jet state changed" event, so we have to disable state updates until we are finished with updates in opendaq
         jetStateUpdateDisabled = true; 
@@ -171,13 +170,13 @@ void JetServer::addJetState(const std::string& path)
                     default:
                         if(atLeastOnePropertyChanged == true)
                             updateJetState(component);
-                        throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE, jsonValueType, propertyName, globalId);
+                        throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE, jsonValueType, propertyName, path);
                         break;
                 }
             }
             catch(...)
             {
-                throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE, jsonValueType, propertyName, globalId);
+                throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE, jsonValueType, propertyName, path);
             }
         }
 
@@ -195,7 +194,7 @@ void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
     ComponentPtr component = propertyObject.asPtr<IComponent>();
     createJsonProperties(component);   
 
-    std::string path = jetStatePath + component.getGlobalId();
+    std::string path = component.getGlobalId();
     jetPeer->notifyState(path, jsonValue);
     jsonValue.clear();
 }
@@ -204,7 +203,7 @@ void JetServer::updateJetState(const ComponentPtr& component)
 {
     createJsonProperties(component);   
 
-    std::string path = jetStatePath + component.getGlobalId();
+    std::string path = component.getGlobalId();
     jetPeer->notifyState(path, jsonValue);
     jsonValue.clear();
 }
@@ -377,7 +376,7 @@ void JetServer::createCallbackForProperty(const PropertyPtr& property)
 // TODO! arguments are not received from jet, need to find out why and fix
 void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property)
 {
-    std::string path = jetStatePath + propertyPublisher.getGlobalId() + "/" + property.getName();
+    std::string path = propertyPublisher.getGlobalId() + "/" + property.getName();
 
     std::string methodName = property.getName();
     CoreType coreType = property.getValueType();
@@ -447,16 +446,6 @@ void JetServer::stopJetEventloop()
 void JetServer::startJetEventloopThread()
 {
     jetEventloopThread = std::thread{ &JetServer::startJetEventloop, this };
-}
-
-StringPtr JetServer::getJetStatePath()
-{
-    return jetStatePath;
-}
-    
-void JetServer::setJetStatePath(StringPtr path)
-{
-    jetStatePath = path;
 }
 
 /**
