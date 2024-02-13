@@ -459,12 +459,30 @@ void JetServer::setJetStatePath(StringPtr path)
     jetStatePath = path;
 }
 
+/**
+ * @brief Appends simple properties types BoolProperty, IntProperty, FloatProperty and StringProperty to Json::Value object,
+ * in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @tparam DataType Type of the property - bool, in64_t, double or std::string.
+ * @param propertyHolder An object which owns the property.
+ * @param propertyName Name of the property.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template<typename PropertyHolderType, typename DataType>
 void JetServer::appendSimpleProperty(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue) {
     DataType propertyValue = propertyHolder.getPropertyValue(propertyName);
     parentJsonValue[propertyName] = propertyValue;
 }
 
+/**
+ * @brief Appends ListProperty to Json::Value object in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @param propertyHolder An object which owns the property.
+ * @param property The property which is appended to a Jet state.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template<typename PropertyHolderType>
 void JetServer::appendListProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
@@ -499,6 +517,15 @@ void JetServer::appendListProperty(const PropertyHolderType& propertyHolder, con
     }
 }
 
+/**
+ * @brief Helper function which appends a ListProperty to a Json::Value object in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @tparam ItemType Type of the List items.
+ * @param propertyHolder An object which owns the property.
+ * @param propertyName Name of the property.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template <typename PropertyHolderType, typename ItemType>
 void JetServer::fillListProperty(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue)
 {
@@ -510,6 +537,14 @@ void JetServer::fillListProperty(const PropertyHolderType& propertyHolder, const
     }
 }
 
+/**
+ * @brief Helper function which appends Ratio type object to a ListProperty in a a Json::Value object in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @param propertyHolder An object which owns the property.
+ * @param propertyName Name of the property.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template <typename PropertyHolderType>
 void JetServer::fillListPropertyWithRatio(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue)
 {
@@ -527,12 +562,22 @@ void JetServer::fillListPropertyWithRatio(const PropertyHolderType& propertyHold
 }
 
 // non-string key types cannot be represented in Json::Value!!
+
+/**
+ * @brief Appends DictProperty to Json::Value object in order to be represented in a Jet state. DictProperty is a collection of key-value pairs.
+ * Non-string key types cannot be represented in Json::Value.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @param propertyHolder An object which owns the property.
+ * @param property The property which is appended to a Jet state.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template<typename PropertyHolderType>
 void JetServer::appendDictProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
     std::string propertyName = property.getName();
     CoreType keyCoreType = property.getKeyType();
-
+    //! Non-string key types cannot be represented in Json::Value!
     switch(keyCoreType) {
         // case CoreType::ctBool:
             // determineDictItemType<PropertyHolderType, bool>(propertyHolder, property, parentJsonValue);
@@ -555,6 +600,15 @@ void JetServer::appendDictProperty(const PropertyHolderType& propertyHolder, con
     }
 }
 
+/**
+ * @brief Helper function which determines item type (value type key-value pairs) of a DictProperty.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @tparam KeyType Type of the keys (types of keys in key-value pairs) in a DictProperty.
+ * @param propertyHolder An object which owns the property.
+ * @param property The property which is appended to a Jet state.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template <typename PropertyHolderType, typename KeyType>
 void JetServer::determineDictItemType(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
@@ -589,6 +643,16 @@ void JetServer::determineDictItemType(const PropertyHolderType& propertyHolder, 
     }
 }
 
+/**
+ * @brief Helper function which appends a DictProperty to a Json::Value object in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @tparam KeyType Type of the keys (types of keys in key-value pairs) in a DictProperty.
+ * @tparam ItemType Type of the items (values of keys in key-value pairs) in a DictProperty.
+ * @param propertyHolder An object which owns the property.
+ * @param property The property which is appended to a Jet state.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template <typename PropertyHolderType, typename KeyType, typename ItemType>
 void JetServer::fillDictProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
@@ -605,6 +669,14 @@ void JetServer::fillDictProperty(const PropertyHolderType& propertyHolder, const
     }
 }
 
+/**
+ * @brief Appends RatioProperty to Json::Value object in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @param propertyHolder An object which owns the property.
+ * @param propertyName Name of the property.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template<typename PropertyHolderType>
 void JetServer::appendRatioProperty(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue)
 {
@@ -615,6 +687,15 @@ void JetServer::appendRatioProperty(const PropertyHolderType& propertyHolder, co
     parentJsonValue[propertyName]["Denominator"] = denominator;
 }
 
+//! This function needs testing!
+/**
+ * @brief Appends ComplexNumber object to Json::Value object in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @param propertyHolder An object which owns the property.
+ * @param propertyName Name of the property.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template<typename PropertyHolderType>
 void JetServer::appendComplexNumber(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue)
 {
@@ -625,6 +706,15 @@ void JetServer::appendComplexNumber(const PropertyHolderType& propertyHolder, co
     parentJsonValue[propertyName]["Imaginary"] = imag;
 }
 
+//! This function is not finished!
+/**
+ * @brief Appends StructProperty to Json::Value object in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @param propertyHolder An object which owns the property.
+ * @param property The property which is appended to a Jet state.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template<typename PropertyHolderType>
 void JetServer::appendStructProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
@@ -712,6 +802,14 @@ void JetServer::appendStructProperty(const PropertyHolderType& propertyHolder, c
     parentJsonValue[propertyName] = structValue;
 }
 
+/**
+ * @brief Appends ObjectProperty to Json::Value object in order to be represented in a Jet state.
+ * 
+ * @tparam PropertyHolderType Type of the object which owns the property.
+ * @param propertyHolder An object which owns the property.
+ * @param property The property which is appended to a Jet state.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template<typename PropertyHolderType>
 void JetServer::appendObjectProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
