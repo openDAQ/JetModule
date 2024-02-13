@@ -30,8 +30,6 @@ public:
     explicit JetServer(const DevicePtr& device);
     ~JetServer();
     void publishJetStates();
-    StringPtr getJetStatePath();
-    void setJetStatePath(StringPtr path);
 
 private:
     void parseFolder(const FolderPtr& parentFolder);
@@ -109,8 +107,6 @@ private:
     void startJetEventloop();
     void stopJetEventloop();
     void startJetEventloopThread();
-
-    StringPtr jetStatePath = "/daq/JetModule";
 };
 
 
