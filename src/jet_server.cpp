@@ -3,9 +3,14 @@
 #include <jet/defines.h>
 #include "jet_server.h"
 #include "jet_module_exceptions.h"
-
 BEGIN_NAMESPACE_JET_MODULE
 
+/**
+ * @brief Constructs a new Jet Server object. It takes an openDAQ device as an argument and publishes its tree structure in Json representation
+ * as Jet states.
+ * 
+ * @param device A device which will be parsed and structure of which is published as Jet states.
+ */
 JetServer::JetServer(const DevicePtr& device)
 {
     this->rootDevice = device;
@@ -21,13 +26,106 @@ JetServer::JetServer(const DevicePtr& device)
     componentIdDict = Dict<IString, IComponent>();
 }
 
+/**
+ * @brief Destroy the JetServer object. It stops the Jet eventloop and deletes dynamically created PeerAsync object.
+ * 
+ */
 JetServer::~JetServer()
 {
     stopJetEventloop();
     delete(jetPeer);
 }
 
-void JetServer::addJetState(const std::string& path)
+/**
+ * @brief Publishes a device's tree structure in Json format as Jet states.
+ * 
+ */
+void JetServer::publishJetStates()
+{
+    prepareComponentJetState(rootDevice);
+    parseFolder(rootDevice);
+
+    propertyCallbacksCreated = true; //TODO! Verify functionality of this variable
+}
+
+/**
+ * @brief Parses a openDAQ folder to identify components in it. The components are parsed themselves to create their Jet states.
+ * 
+ * @param parentFolder A folder which is parsed to identify components in it.
+ */
+void JetServer::parseFolder(const FolderPtr& parentFolder)
+{
+    auto items = parentFolder.getItems();
+    for(const auto& item : items)
+    {
+        auto folder = item.asPtrOrNull<IFolder>();
+        auto channel = item.asPtrOrNull<IChannel>();
+        auto component = item.asPtrOrNull<IComponent>();
+
+        if (channel.assigned())
+        {
+            prepareComponentJetState(channel);
+        }
+        else if (folder.assigned()) // It is important to test for folder last as a channel also is a folder!
+        {
+            parseFolder(folder); // Folders are recursively parsed until non-folder items are identified in them
+        }
+        else if (component.assigned())  // It is important to test for component after folder!
+        {
+            prepareComponentJetState(component);
+        }
+        else
+        {
+            throwJetModuleException(JM_UNSUPPORTED_ITEM);
+        }
+    }
+}
+
+/**
+ * @brief Prepares a component for publishing its tree structure in Json format as a Jet state.
+ * 
+ * @param component Component object whose tree structure is published.
+ */
+void JetServer::prepareComponentJetState(const ComponentPtr& component)
+{
+    // Storing global ID of the components and its pointer
+    componentIdDict.set(component.getGlobalId(), component);
+
+    // Parsing the component to identify its properties
+    parseComponentProperties(component);   
+
+    // Adding additional information to a component's Jet state
+    appendGlobalId(component, jsonValue);
+    appendObjectType(component, jsonValue);
+    appendActiveStatus(component, jsonValue);
+    appendTags(component, jsonValue);    
+
+    // Checking the concrete type of the component. Depending on whether it's a device or channel, specific objects have to be
+    // appended to its Json representation in a Jet state
+    const char* componentType = component.asPtr<ISerializable>().getSerializeId(); // the value is e.g. "Device", "Channel" and so on
+    if(strcmp(componentType, "Device") == 0)
+    {   
+        appendDeviceMetadata(component.asPtr<IDevice>(), jsonValue);
+        appendDeviceDomain(component.asPtr<IDevice>(), jsonValue);
+        appendOutputSignals<DevicePtr>(component, jsonValue);
+    }
+    else if(strcmp(componentType, "Channel") == 0) {
+        appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jsonValue);
+        appendInputPorts(component.asPtr<IFunctionBlock>(), jsonValue);
+        appendOutputSignals<ChannelPtr>(component, jsonValue);
+    }
+
+    // Publish the component's tree structure as a Jet state
+    std::string path = component.getGlobalId();
+    publishComponentJetState(path);
+}  
+
+/**
+ * @brief Publishes a tree structure of an openDAQ component as a Jet state with specified path.
+ * 
+ * @param path Path to which a component's tree structure is published as a Jet state.
+ */
+void JetServer::publishComponentJetState(const std::string& path)
 {
     auto cb = [this](const Json::Value& value, std::string path) -> Json::Value
     {
@@ -189,99 +287,34 @@ void JetServer::addJetState(const std::string& path)
     jsonValue.clear();
 }
 
-void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
+/**
+ * @brief Parses a component to get its properties which are converted into Json representation in order to be published
+ * in the component's Jet state
+ * 
+ * @param component Component which is parsed to retrieve its properties.
+ */
+void JetServer::parseComponentProperties(const ComponentPtr& component)
 {
-    ComponentPtr component = propertyObject.asPtr<IComponent>();
-    createJsonProperties(component);   
+    std::string propertyPublisherName = component.getName();
 
-    std::string path = component.getGlobalId();
-    jetPeer->notifyState(path, jsonValue);
-    jsonValue.clear();
-}
-
-void JetServer::updateJetState(const ComponentPtr& component)
-{
-    createJsonProperties(component);   
-
-    std::string path = component.getGlobalId();
-    jetPeer->notifyState(path, jsonValue);
-    jsonValue.clear();
-}
-
-void JetServer::publishJetStates()
-{
-    createComponentJetState(rootDevice);
-    parseFolder(rootDevice);
-
-    propertyCallbacksCreated = true;
-}
-
-void JetServer::parseFolder(const FolderPtr& parentFolder)
-{
-    auto items = parentFolder.getItems();
-    for(const auto& item : items)
-    {
-        auto folder = item.asPtrOrNull<IFolder>();
-        auto channel = item.asPtrOrNull<IChannel>();
-        auto component = item.asPtrOrNull<IComponent>();
-
-       if (channel.assigned())
-        {
-            createComponentJetState(channel);
-        }
-        else if (folder.assigned()) // It is important to test for folder last as a channel also is a folder!
-        {
-            parseFolder(folder); // Folders are recursively parsed until non-folder items are identified in them
-        }
-        else if (component.assigned())  // It is important to test for component after folder!
-        {
-            createComponentJetState(component);
-        }
-        else
-        {
-            throwJetModuleException(JM_UNSUPPORTED_ITEM);
-        }
+    auto properties = component.getAllProperties();
+    for(auto property : properties) {
+        determinePropertyType<ComponentPtr>(component, property, jsonValue);
+        if(!propertyCallbacksCreated)
+            createCallbackForProperty(property);
     }
 }
 
-void JetServer::createComponentJetState(const ComponentPtr& component)
-{
-    componentIdDict.set(component.getGlobalId(), component);
-    createJsonProperties(component);   
-
-    // Adding additional information to a component's Jet state
-    appendGlobalId(component, jsonValue);
-    appendObjectType(component, jsonValue);
-    appendActiveStatus(component, jsonValue);
-    appendTags(component, jsonValue);    
-
-    const char* componentType = component.asPtr<ISerializable>().getSerializeId(); // the value will be e.g. "Device", "Channel" and so on
-    // Checking whether the component is a device. If it's a device we have to retrieve device metadata properties
-    if(strcmp(componentType, "Device") == 0)
-    {   
-        appendDeviceMetadata(component.asPtr<IDevice>(), jsonValue);
-        appendDeviceDomain(component.asPtr<IDevice>(), jsonValue);
-        appendOutputSignals<DevicePtr>(component, jsonValue);
-    }
-    else if(strcmp(componentType, "Channel") == 0) {
-        appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jsonValue);
-        appendInputPorts(component.asPtr<IFunctionBlock>(), jsonValue);
-        appendOutputSignals<ChannelPtr>(component, jsonValue);
-    }
-
-    std::string path = jetStatePath + component.getGlobalId();
-    addJetState(path);
-}   
-
-void JetServer::createComponentListJetStates(const ListPtr<ComponentPtr>& componentList)
-{
-    for(auto component : componentList) {
-        createComponentJetState(component);
-    }
-}
-
+/**
+ * @brief Determines type of an openDAQ property in order to correctly represent it in Json format.
+ * 
+ * @tparam PropertyHolder Type of the object which owns the property.
+ * @param propertyHolder Object which owns the property.
+ * @param property The property whose type is determined.
+ * @param parentJsonValue Json::Value object to which the property is appended.
+ */
 template <typename PropertyHolder>
-void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
+void JetServer::determinePropertyType(const PropertyHolder& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
     std::string propertyName = property.getName();
     CoreType propertyType = property.getValueType();
@@ -323,7 +356,7 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
                 auto properties = propertyObject.getAllProperties();
                 for(auto property : properties)
                 {
-                    createJsonProperty<PropertyObjectPtr>(propertyObject, property, parentJsonValue[propertyObjectName]);
+                    determinePropertyType<PropertyObjectPtr>(propertyObject, property, parentJsonValue[propertyObjectName]);
                 }
             }
             break;
@@ -346,24 +379,24 @@ void JetServer::createJsonProperty(const PropertyHolder& propertyHolder, const P
     }
 }
 
-void JetServer::createJsonProperties(const ComponentPtr& component)
+void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
 {
-    std::string propertyPublisherName = component.getName();
+    ComponentPtr component = propertyObject.asPtr<IComponent>();
+    parseComponentProperties(component);   
 
-    auto properties = component.getAllProperties();
-    for(auto property : properties) {
-        createJsonProperty<ComponentPtr>(component, property, jsonValue);
-        if(!propertyCallbacksCreated)
-            createCallbackForProperty(property);
-    }
+    std::string path = component.getGlobalId();
+    jetPeer->notifyState(path, jsonValue);
+    jsonValue.clear();
 }
 
-template <typename ValueType>
-void JetServer::appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value)
+void JetServer::updateJetState(const ComponentPtr& component)
 {
-    std::string componentName = toStdString(component.getName());
-    jsonValue[componentName][propertyName] = value;
-}
+    parseComponentProperties(component);   
+
+    std::string path = component.getGlobalId();
+    jetPeer->notifyState(path, jsonValue);
+    jsonValue.clear();
+} 
 
 void JetServer::createCallbackForProperty(const PropertyPtr& property)
 {
@@ -757,10 +790,8 @@ void JetServer::appendStructProperty(const PropertyHolderType& propertyHolder, c
                             }
                             break;
                         case CoreType::ctInt:
-                            // appendListPropertyToJsonValue<int>(propertyHolder, property, parentJsonValue[propertyName][toStdString(fieldNames[i])]);
                             break;
                         case CoreType::ctFloat:
-                            // appendListPropertyToJsonValue<float>(propertyHolder, property, parentJsonValue[propertyName][toStdString(fieldNames[i])]);
                             break;
                         case CoreType::ctString:
                             // appendListPropertyToJsonValue<std::string>(propertyHolder, property, parentJsonValue[propertyName][toStdString(fieldNames[i])]);
@@ -778,6 +809,10 @@ void JetServer::appendStructProperty(const PropertyHolderType& propertyHolder, c
             case CoreType::ctRatio:
                 break;
             case CoreType::ctComplexNumber:
+                break;
+            case CoreType::ctStruct:
+                break;
+            case CoreType::ctEnumeration:
                 break;
             default:
                 {
@@ -809,7 +844,7 @@ void JetServer::appendObjectProperty(const PropertyHolderType& propertyHolder, c
     auto properties = propertyObject.getAllProperties();
     for(auto property : properties)
     {
-        createJsonProperty<PropertyObjectPtr>(propertyObject, property, parentJsonValue[propertyObjectName]);
+        determinePropertyType<PropertyObjectPtr>(propertyObject, property, parentJsonValue[propertyObjectName]);
     }
 }
 
@@ -825,7 +860,7 @@ void JetServer::appendDeviceMetadata(const DevicePtr& device, Json::Value& paren
     auto deviceInfoProperties = deviceInfo.getAllProperties();
     for(auto property : deviceInfoProperties) 
     {
-        createJsonProperty<DeviceInfoPtr>(deviceInfo, property, parentJsonValue);
+        determinePropertyType<DeviceInfoPtr>(deviceInfo, property, parentJsonValue);
         if(!propertyCallbacksCreated)
             createCallbackForProperty(property); // TODO: callbacks for device information properties don't seem to work. Need to find a way around
     }

@@ -32,21 +32,21 @@ public:
     void publishJetStates();
 
 private:
+    // Tree structure parsers of an openDAQ device
     void parseFolder(const FolderPtr& parentFolder);
+    void prepareComponentJetState(const ComponentPtr& component);
+    void parseComponentProperties(const ComponentPtr& component);
 
+    // Tree structure publisher of an openDAQ device
+    void publishComponentJetState(const std::string& path);
+
+    // Functions which are called when some component's property is updated from Jet (e.g. using jetset tool)
     void updateJetState(const PropertyObjectPtr& propertyObject);
     void updateJetState(const ComponentPtr& component);
 
-    void createComponentJetState(const ComponentPtr& component);
-    void createComponentListJetStates(const ListPtr<ComponentPtr>& componentList);
-
+    // Helper function which determines type of an openDAQ property
     template <typename PropertyHolder>
-    void createJsonProperty(const PropertyHolder& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
-    void createJsonProperties(const ComponentPtr& component);
-    template <typename ValueType>
-    void appendPropertyToJsonValue(const ComponentPtr& component, const std::string& propertyName, const ValueType& value);
-    void addJetState(const std::string& path);
-
+    void determinePropertyType(const PropertyHolder& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue);
 
     // Append properties to Json value
     template<typename PropertyHolderType, typename DataType>
@@ -93,10 +93,10 @@ private:
     
     void createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property);
 
-    DevicePtr rootDevice;
-    DictPtr<IString, IComponent> componentIdDict;
+    DevicePtr rootDevice; // Pointer to the root openDAQ device whose tree structure is parsed in order to publish it as Jet states
+    DictPtr<IString, IComponent> componentIdDict; // Stores global IDs of components and their pointers
+    Json::Value jsonValue; // Container which is filled for every component and is cleared when the component's tree structure is published as a Jet state
 
-    Json::Value jsonValue;
     hbk::jet::PeerAsync* jetPeer;
 
     bool jetStateUpdateDisabled;
