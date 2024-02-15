@@ -113,11 +113,13 @@ void JetServer::prepareComponentJetState(const ComponentPtr& component)
         appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jsonValue);
         appendInputPorts(component.asPtr<IFunctionBlock>(), jsonValue);
         appendOutputSignals<ChannelPtr>(component, jsonValue);
+        appendVisibleStatus(component, jsonValue);
     }
     else if(strcmp(componentType, "FunctionBlock") == 0) {
         appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jsonValue);
         appendInputPorts(component.asPtr<IFunctionBlock>(), jsonValue);
         appendOutputSignals<FunctionBlockPtr>(component, jsonValue);
+        appendVisibleStatus(component, jsonValue);
     }
 
     // Publish the component's tree structure as a Jet state
@@ -943,6 +945,7 @@ void JetServer::appendInputPorts(const FunctionBlockPtr& functionBlock, Json::Va
         appendGlobalId(inputPort, parentJsonValue["InputPorts"][name]);
         appendObjectType(inputPort, parentJsonValue["InputPorts"][name]);
         appendActiveStatus(inputPort, parentJsonValue["InputPorts"][name]);
+        appendVisibleStatus(inputPort, parentJsonValue["InputPorts"][name]);
         appendTags(inputPort, parentJsonValue["InputPorts"][name]);
 
         bool requiresSignal = inputPort.getRequiresSignal();
@@ -976,6 +979,7 @@ void JetServer::appendOutputSignals(const ObjectType& object, Json::Value& paren
         appendGlobalId(signal, parentJsonValue["OutputSignals"][signalName]);
         appendObjectType(signal, parentJsonValue["OutputSignals"][signalName]);
         appendActiveStatus(signal, parentJsonValue["OutputSignals"][signalName]);
+        appendVisibleStatus(signal, parentJsonValue["OutputSignals"][signalName]);
         appendTags(signal, parentJsonValue["OutputSignals"][signalName]);
 
         DataDescriptorPtr dataDescriptor = signal.getDescriptor();
@@ -1098,6 +1102,18 @@ void JetServer::appendActiveStatus(const ComponentPtr& component, Json::Value& p
 {
     bool isActive = component.getActive();
     parentJsonValue["Active"] = isActive;
+}
+
+/**
+ * @brief Appends a component's visibility status (true or false) to Json::Value object which is published as a Jet state.
+ * 
+ * @param component Component from which visibility status is retrieved.
+ * @param parentJsonValue Json::Value object to which visibility status is appended.
+ */
+void JetServer::appendVisibleStatus(const ComponentPtr& component, Json::Value& parentJsonValue)
+{
+    bool isVisible = component.getVisible();
+    parentJsonValue["Visible"] = isVisible;
 }
 
 /**
