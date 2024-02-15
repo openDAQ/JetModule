@@ -61,21 +61,21 @@ void JetServer::parseFolder(const FolderPtr& parentFolder)
         auto folder = item.asPtrOrNull<IFolder>();
         auto channel = item.asPtrOrNull<IChannel>();
         auto component = item.asPtrOrNull<IComponent>();
+        auto functionBlock = item.asPtrOrNull<IFunctionBlock>();
 
-        if (channel.assigned())
-        {
+        if(channel.assigned()) {
             prepareComponentJetState(channel);
         }
-        else if (folder.assigned()) // It is important to test for folder last as a channel also is a folder!
-        {
+        else if(functionBlock.assigned()) {
+            prepareComponentJetState(functionBlock);
+        }
+        else if(folder.assigned()) { // It is important to test for folder last as a channel also is a folder!
             parseFolder(folder); // Folders are recursively parsed until non-folder items are identified in them
         }
-        else if (component.assigned())  // It is important to test for component after folder!
-        {
+        else if(component.assigned()) { // It is important to test for component after folder!
             prepareComponentJetState(component);
         }
-        else
-        {
+        else {
             throwJetModuleException(JM_UNSUPPORTED_ITEM);
         }
     }
@@ -113,6 +113,11 @@ void JetServer::prepareComponentJetState(const ComponentPtr& component)
         appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jsonValue);
         appendInputPorts(component.asPtr<IFunctionBlock>(), jsonValue);
         appendOutputSignals<ChannelPtr>(component, jsonValue);
+    }
+    else if(strcmp(componentType, "FunctionBlock") == 0) {
+        appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jsonValue);
+        appendInputPorts(component.asPtr<IFunctionBlock>(), jsonValue);
+        appendOutputSignals<FunctionBlockPtr>(component, jsonValue);
     }
 
     // Publish the component's tree structure as a Jet state
@@ -923,6 +928,14 @@ void JetServer::appendFunctionBlockInfo(const FunctionBlockPtr& functionBlock, J
 void JetServer::appendInputPorts(const FunctionBlockPtr& functionBlock, Json::Value& parentJsonValue)
 {
     const auto inputPorts = functionBlock.getInputPorts();
+
+    // Add an empty Json entry if the object doesn't have input ports
+    if(inputPorts.getCount() == 0)
+    {
+        parentJsonValue["InputPorts"] = Json::ValueType::nullValue;
+        return;
+    }
+
     for(auto inputPort : inputPorts) {
         std::string name = inputPort.getName();
 
@@ -935,9 +948,6 @@ void JetServer::appendInputPorts(const FunctionBlockPtr& functionBlock, Json::Va
         bool requiresSignal = inputPort.getRequiresSignal();
         parentJsonValue["InputPorts"][name]["RequiresSignal"] = requiresSignal;
     }
-    
-    if(inputPorts.getCount() == 0) // If there are no input ports, still add "InputPorts" attribute to Json object with null value
-        parentJsonValue["InputPorts"] = Json::ValueType::nullValue;
 }
 
 /**
@@ -951,6 +961,14 @@ template <typename ObjectType>
 void JetServer::appendOutputSignals(const ObjectType& object, Json::Value& parentJsonValue)
 {
     const auto signals = object.getSignals();
+    
+    // Add an empty Json entry if the object doesn't have signals
+    if(signals.getCount() == 0)
+    {
+        parentJsonValue["OutputSignals"] = Json::ValueType::nullValue;
+        return;
+    }
+
     for(auto signal : signals) {
         std::string signalName = signal.getName();
 
@@ -961,6 +979,13 @@ void JetServer::appendOutputSignals(const ObjectType& object, Json::Value& paren
         appendTags(signal, parentJsonValue["OutputSignals"][signalName]);
 
         DataDescriptorPtr dataDescriptor = signal.getDescriptor();
+
+        // If data descriptor is empty add an empty Json enrtry
+        if(dataDescriptor.assigned() == false) {
+            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"] = Json::ValueType::nullValue;
+            continue;
+        }
+
         std::string name = dataDescriptor.getName();
             parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Name"] = name;
         ListPtr<IDimension> dimensions = dataDescriptor.getDimensions();
@@ -1037,9 +1062,6 @@ void JetServer::appendOutputSignals(const ObjectType& object, Json::Value& paren
             parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["ValueRange"]["Low"] = lowValue;
             parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["ValueRange"]["High"] = highValue;
     }
-
-    if(signals.getCount() == 0) // If there are no signals, still add "OutputSignals" attribute to Json object with null value
-        parentJsonValue["OutputSignals"] = Json::ValueType::nullValue;
 }
 
 /**
@@ -1088,11 +1110,16 @@ void JetServer::appendTags(const ComponentPtr& component, Json::Value& parentJso
 {
     TagsPtr tags = component.getTags();
     auto tagsList = tags.getList();
+
+    // If there are no tags, still add "Tags" attribute to Json object with null value
+    if(tagsList.getCount() == 0) {
+        parentJsonValue["Tags"] = Json::ValueType::nullValue;
+        return;
+    }
+    
     for(const std::string& item : tagsList)
         parentJsonValue["Tags"].append(item);
     
-    if(tagsList.getCount() == 0) // If there are no tags, still add "Tags" attribute to Json object with null value
-        parentJsonValue["Tags"] = Json::ValueType::nullValue;
 }
 
 END_NAMESPACE_JET_MODULE
