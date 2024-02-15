@@ -3,7 +3,7 @@
     "cmake.defaultVariants": {
         
         "buildType": {
-            "default": "debug",
+            "default": "Build",
             "description": "The build type.",
             "choices": {
                 "debug": {

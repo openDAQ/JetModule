@@ -13,10 +13,18 @@ int main() {
     // Add a reference device as root device
     instance.setRootDevice("daqref://device0");
 
+    auto device = instance.getRootDevice();
+
+    // Add function blocks for testing purposes
+    // instance.addFunctionBlock("ref_fb_module_renderer");
+    instance.addFunctionBlock("ref_fb_module_statistics");
+    instance.addFunctionBlock("ref_fb_module_power");
+    instance.addFunctionBlock("ref_fb_module_scaling");
+    device.addFunctionBlock("ref_fb_module_classifier");
+    device.addFunctionBlock("ref_fb_module_trigger");
+
     // Start streaming openDAQ OpcUa server
     instance.addServer("openDAQ OpcUa", nullptr);
-
-    auto device = instance.getRootDevice();
 
     JetServer myJet = JetServer(device);
     myJet.publishJetStates();
