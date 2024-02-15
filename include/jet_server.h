@@ -86,6 +86,7 @@ private:
     void appendGlobalId(const ComponentPtr& component, Json::Value& parentJsonValue);
     void appendObjectType(const ComponentPtr& component, Json::Value& parentJsonValue);
     void appendActiveStatus(const ComponentPtr& component, Json::Value& parentJsonValue);
+    void appendVisibleStatus(const ComponentPtr& component, Json::Value& parentJsonValue);
     void appendTags(const ComponentPtr& component, Json::Value& parentJsonValue);
 
     bool propertyCallbacksCreated;
