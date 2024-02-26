@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 #pragma once
+#include <future>
+#include <json/value.h>
 #include <opendaq/device_impl.h>
 #include <opendaq/logger_component_factory.h>
-#include <json/value.h>
+#include <jet/peerasync.hpp>
 #include "common.h"
 #include "jet_module_exceptions.h"
 
@@ -27,12 +29,18 @@ BEGIN_NAMESPACE_JET_MODULE
 class JetServerBase
 {
 public:
+    explicit JetServerBase();
+
     void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index);
-    ListPtr<BaseObjectPtr> convertJsonArrayToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value);
-    void convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Value& obj, const std::string& pathPrefix);
-    std::string removeSubstring(const std::string& originalString, const std::string& substring);
+
+    static Json::Value readJetState(const std::string& path);
+    void modifyJetState(const std::string& path, const std::string& entryName, const Json::Value& entryValue);
 protected:
+    std::string removeRootDeviceId(const std::string& path);
+
     LoggerComponentPtr logger;
+private:
+    static void readJetStateCb(std::promise<Json::Value>& promise, const Json::Value& value);
 };
 
 END_NAMESPACE_JET_MODULE

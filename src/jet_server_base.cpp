@@ -3,6 +3,14 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
+static hbk::sys::EventLoop jetStateReadEventloop;
+
+JetServerBase::JetServerBase()
+{
+    // initiate openDAQ logger
+    logger = LoggerComponent("JetModuleLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
+}
+
 void JetServerBase::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index)
 {
     Json::ValueType jsonValueType = args[index].type();
@@ -37,161 +45,87 @@ void JetServerBase::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json:
     }
 }
 
-ListPtr<BaseObjectPtr> JetServerBase::convertJsonArrayToDaqArray(const ComponentPtr& propertyHolder, const std::string& propertyName, const Json::Value& value)
+/**
+ * @brief Read a Jet state with specified path into a Json object.
+ * 
+ * @param path Path of the Jet state which is read.
+ * @return Json::Value object containing a Json representation of the Jet state.
+ */
+Json::Value JetServerBase::readJetState(const std::string& path)
 {
-    auto array = value.get(propertyName, "");
-    uint64_t arraySize = array.size();
-    Json::ValueType arrayElementType =  array[0].type();
+    std::string address("127.0.0.1"); // localhost
+    unsigned int port = hbk::jet::JETD_TCP_PORT;
 
-    ListPtr<BaseObjectPtr> daqArray;
-    switch(arrayElementType)
-    {
-        case Json::ValueType::nullValue:
-            {
-                std::string message = "Null type element detected in the array!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
-            }
-            break;
-        case Json::ValueType::intValue:
-            daqArray = List<int>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asInt());
-            }
-            break;
-        case Json::ValueType::uintValue:
-            daqArray = List<uint>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asUInt());
-            }
-            break;
-        case Json::ValueType::realValue:
-            daqArray = List<double>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asDouble());
-            }
-            break;
-        case Json::ValueType::stringValue:
-            daqArray = List<std::string>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asString());
-            }
-            break;
-        case Json::ValueType::booleanValue:
-            daqArray = List<bool>();
-            for(int i = 0; i < arraySize; i++) {
-                daqArray.pushBack(array[i].asBool());
-            }
-            break;
-        default:
-            {
-                std::string message = "Unsupported array element type detected: " + arrayElementType + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
-            }
+    // We want to get a Jet state with provided path only
+    hbk::jet::matcher_t match;
+    match.equals = path;
+
+    hbk::jet::PeerAsync jetStateReaderPeer(jetStateReadEventloop, address, port);
+
+    // Create a promise and future
+    std::promise<Json::Value> promise;
+    std::future<Json::Value> future = promise.get_future();
+
+    // Calls the callback function with the promise
+    jetStateReaderPeer.getAsync(match, [&promise](const Json::Value& value) {
+        readJetStateCb(promise, value);
+    });
+
+    jetStateReadEventloop.execute();
+
+    // Wait for the future to get the value
+    Json::Value jetState = future.get();
+
+    // Making sure that size of the array of Json objects is exactly 1
+    if(jetState.size() == 0) {
+        //TODO! Need to throw an exception
+    }
+    else if(jetState.size() != 1) {
+        //TODO! Need to throw an exception
     }
 
-    return daqArray;
+    // We get the first Json object in the array and get its value afterwards (Json object comes with path&value pair, we only need value)
+    jetState = jetState[0][hbk::jet::VALUE];
+
+    return jetState;
 }
 
-void JetServerBase::convertJsonObjectToDaqObject(const ComponentPtr& component, const Json::Value& obj, const std::string& pathPrefix) 
+void JetServerBase::readJetStateCb(std::promise<Json::Value>& promise, const Json::Value& value)
 {
-    for (const auto& key : obj.getMemberNames()) {
-        const Json::Value& value = obj[key];
+    // value contains the data as an array of objects
+    Json::Value jetState = value[hbk::jsonrpc::RESULT];
+    promise.set_value(jetState);
 
-        // Construct the path for the current element
-        std::string currentPath = pathPrefix + key;
-
-        if (value.isObject()) 
-        {
-            // Recursive call for nested objects
-            convertJsonObjectToDaqObject(component, value, currentPath + ".");
-        } 
-        else 
-        {
-            std::string logMessage = "Value for " + currentPath + " has not changed. Skipping...\n";
-
-            // Process the leaf element
-            Json::ValueType jsonValueType = value.type();
-            switch(jsonValueType)
-            {
-                case Json::ValueType::intValue:
-                    {
-                        int64_t oldValue = component.getPropertyValue(currentPath);
-                        int64_t newValue = value.asInt64(); 
-                        if (oldValue != newValue)
-                            component.setPropertyValue(currentPath, newValue);
-                        else 
-                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
-                    }
-                    break;
-                case Json::ValueType::uintValue:
-                    {
-                        uint64_t oldValue = component.getPropertyValue(currentPath);
-                        uint64_t newValue = value.asUInt64();
-                        if (oldValue != newValue)
-                            component.setPropertyValue(currentPath, newValue);
-                        else
-                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
-                    }
-                    break;
-                case Json::ValueType::realValue:
-                    {
-                        double oldValue = component.getPropertyValue(currentPath);
-                        double newValue = value.asDouble();
-                        if (oldValue != newValue)
-                            component.setPropertyValue(currentPath, newValue);
-                        else
-                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
-                    }
-                    break;
-                case Json::ValueType::stringValue:
-                    {
-                        std::string oldValue = component.getPropertyValue(currentPath);
-                        std::string newValue = value.asString();
-                        if (oldValue != newValue)
-                            component.setPropertyValue(currentPath, newValue);
-                        else
-                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
-                    }
-                    break;
-                case Json::ValueType::booleanValue:
-                    {
-                        bool oldValue = component.getPropertyValue(currentPath);
-                        bool newValue = value.asBool();
-                        if (oldValue != newValue)
-                            component.setPropertyValue(currentPath, newValue);
-                        else
-                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
-                    }
-                    break;
-                case Json::ValueType::arrayValue:
-                    {
-                        ListPtr<BaseObjectPtr> oldDaqArray = component.getPropertyValue(currentPath);
-                        ListPtr<BaseObjectPtr> newDaqArray = this->convertJsonArrayToDaqArray(component, currentPath, value);
-                        if(oldDaqArray != newDaqArray)
-                            component.setPropertyValue(currentPath, newDaqArray);
-                        else
-                            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, logMessage.c_str(), LogLevel::Info);
-                    }
-                    break;
-                default:
-                    throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE);
-                    break;
-            }
-        }
-    }
+    // Stop the event loop
+    jetStateReadEventloop.stop();
 }
 
-// Helper function
-std::string JetServerBase::removeSubstring(const std::string& originalString, const std::string& substring) 
+// TODO! This function is not finished
+void JetServerBase::modifyJetState(const std::string& path, const std::string& entryName, const Json::Value& entryValue)
 {
-    std::string modifiedString = originalString;
-    size_t pos = modifiedString.find(substring);
+    Json::Value jetStateBefore = readJetState(path);
+    
+}
 
-    if (pos != std::string::npos) { // Check if the substring is found
-        modifiedString.erase(pos, substring.length());
+std::string JetServerBase::removeRootDeviceId(const std::string& path)
+{
+    std::string relativePath = path;
+    // Find the position of the first slash
+    size_t firstSlashPos = relativePath.find("/");
+    // Find the position of the second slash, starting the search from the character after the first slash
+    size_t secondSlashPos = relativePath.find("/", firstSlashPos + 1);
+
+    // Check if both slashes are found
+    if (firstSlashPos != std::string::npos && secondSlashPos != std::string::npos) {
+        // If both slashes are found, erase the substring between them (including the second slash)
+        // The '+1' in the length calculation includes the removal of the second slash
+        relativePath.erase(firstSlashPos, secondSlashPos - firstSlashPos + 1);
+    } else {
+        // If not both slashes are found, clear the entire string
+        relativePath.clear();
     }
 
-    return modifiedString;
+    return relativePath;
 }
 
 END_NAMESPACE_JET_MODULE
