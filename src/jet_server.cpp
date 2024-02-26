@@ -3,6 +3,9 @@
 #include <jet/defines.h>
 #include "jet_server.h"
 #include "jet_module_exceptions.h"
+#include "opendaq_to_json_converters.h"
+#include "json_to_opendaq_converters.h"
+
 BEGIN_NAMESPACE_JET_MODULE
 
 /**
@@ -14,16 +17,10 @@ BEGIN_NAMESPACE_JET_MODULE
 JetServer::JetServer(const DevicePtr& device)
 {
     this->rootDevice = device;
-    propertyCallbacksCreated = false;
-    jetStateUpdateDisabled = false;
     jetEventloopRunning = false;
-
-    // initiate openDAQ logger
-    logger = LoggerComponent("JetModuleLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
 
     startJetEventloopThread();
     jetPeer = new hbk::jet::PeerAsync(jetEventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
-    componentIdDict = Dict<IString, IComponent>();
 }
 
 /**
@@ -42,10 +39,8 @@ JetServer::~JetServer()
  */
 void JetServer::publishJetStates()
 {
-    prepareComponentJetState(rootDevice);
+    prepareComponentJetState(rootDevice); // Need to parse root device sepaately because parsing in parseFolder function is done relative to it
     parseFolder(rootDevice);
-
-    propertyCallbacksCreated = true; //TODO! Verify functionality of this variable
 }
 
 /**
@@ -88,210 +83,243 @@ void JetServer::parseFolder(const FolderPtr& parentFolder)
  */
 void JetServer::prepareComponentJetState(const ComponentPtr& component)
 {
-    // Storing global ID of the components and its pointer
-    componentIdDict.set(component.getGlobalId(), component);
+    Json::Value jetState;
 
     // Parsing the component to identify its properties
-    parseComponentProperties(component);   
+    parseComponentProperties(component, jetState);   
 
     // Adding additional information to a component's Jet state
-    appendGlobalId(component, jsonValue);
-    appendObjectType(component, jsonValue);
-    appendActiveStatus(component, jsonValue);
-    appendTags(component, jsonValue);    
+    appendGlobalId(component, jetState);
+    appendObjectType(component, jetState);
+    appendActiveStatus(component, jetState);
+    appendTags(component, jetState);    
 
     // Checking the concrete type of the component. Depending on whether it's a device or channel, specific objects have to be
     // appended to its Json representation in a Jet state
     const char* componentType = component.asPtr<ISerializable>().getSerializeId(); // the value is e.g. "Device", "Channel" and so on
     if(strcmp(componentType, "Device") == 0)
     {   
-        appendDeviceMetadata(component.asPtr<IDevice>(), jsonValue);
-        appendDeviceDomain(component.asPtr<IDevice>(), jsonValue);
-        appendOutputSignals<DevicePtr>(component, jsonValue);
+        appendDeviceMetadata(component.asPtr<IDevice>(), jetState);
+        appendDeviceDomain(component.asPtr<IDevice>(), jetState);
+        parseComponentSignals<DevicePtr>(component, jetState);
     }
     else if(strcmp(componentType, "Channel") == 0) {
-        appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jsonValue);
-        appendInputPorts(component.asPtr<IFunctionBlock>(), jsonValue);
-        appendOutputSignals<ChannelPtr>(component, jsonValue);
-        appendVisibleStatus(component, jsonValue);
+        appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jetState);
+        parseComponentInputPorts(component.asPtr<IFunctionBlock>(), jetState);
+        parseComponentSignals<ChannelPtr>(component, jetState);
+        appendVisibleStatus(component, jetState);
     }
     else if(strcmp(componentType, "FunctionBlock") == 0) {
-        appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jsonValue);
-        appendInputPorts(component.asPtr<IFunctionBlock>(), jsonValue);
-        appendOutputSignals<FunctionBlockPtr>(component, jsonValue);
-        appendVisibleStatus(component, jsonValue);
+        appendFunctionBlockInfo(component.asPtr<IFunctionBlock>(), jetState);
+        parseComponentInputPorts(component.asPtr<IFunctionBlock>(), jetState);
+        parseComponentSignals<FunctionBlockPtr>(component, jetState);
+        appendVisibleStatus(component, jetState);
     }
+
+    createComponentCallback(component); // Creating openDAQ callbacks
 
     // Publish the component's tree structure as a Jet state
     std::string path = component.getGlobalId();
-    publishComponentJetState(path);
-}  
+    publishComponentJetState(path, jetState);
+}
 
 /**
- * @brief Publishes a tree structure of an openDAQ component as a Jet state with specified path.
+ * @brief Parses a signal and prepares its Json representation for publishing as a Jet state.
  * 
- * @param path Path to which a component's tree structure is published as a Jet state.
+ * @param signal Pointer to the signal which is parsed.
  */
-void JetServer::publishComponentJetState(const std::string& path)
+void JetServer::prepareSignalJetState(const SignalPtr& signal)
+{
+    Json::Value signalJetState;
+    std::string signalName = signal.getName();
+
+    // Adding metadata
+    appendGlobalId(signal, signalJetState);
+    appendObjectType(signal, signalJetState);
+    appendActiveStatus(signal, signalJetState);
+    appendVisibleStatus(signal, signalJetState);
+    appendTags(signal, signalJetState);
+
+    DataDescriptorPtr dataDescriptor = signal.getDescriptor();
+
+    // If data descriptor is empty add an empty Json enrtry
+    if(dataDescriptor.assigned() == false) {
+        signalJetState["Value"]["DataDescriptor"] = Json::ValueType::nullValue;
+        return;
+    }
+
+    std::string name = dataDescriptor.getName();
+        signalJetState["Value"]["DataDescriptor"]["Name"] = name;
+    ListPtr<IDimension> dimensions = dataDescriptor.getDimensions();
+        size_t dimensionsCount = dimensions.getCount();
+        signalJetState["Value"]["DataDescriptor"]["Dimensions"] = dimensionsCount;
+    DictPtr<IString, IString> metadata = dataDescriptor.getMetadata();
+        size_t metadataCount = metadata.getCount();
+        signalJetState["Value"]["DataDescriptor"]["Metadata"] = metadataCount;
+    DataRulePtr rule = dataDescriptor.getRule();
+        signalJetState["Value"]["DataDescriptor"]["Rule"] = std::string(rule);
+    SampleType sampleType;
+        // SampleType::Invalid results in runtime error when we try to get the sample type
+        // Due to this, getter function is inside of try-catch block
+        try {
+            sampleType = dataDescriptor.getSampleType();
+        } catch(...) {
+            sampleType = SampleType::Invalid;
+        }
+        signalJetState["Value"]["DataDescriptor"]["SampleType"] = int(sampleType);
+    UnitPtr unit = dataDescriptor.getUnit();
+        int64_t unitId = unit.getId();
+        std::string unitName = unit.getName();
+        std::string unitQuantity = unit.getQuantity();
+        std::string unitSymbol = unit.getSymbol();
+        signalJetState["Value"]["DataDescriptor"]["Unit"]["UnitId"] = unitId;
+        signalJetState["Value"]["DataDescriptor"]["Unit"]["Description"] = unitName;
+        signalJetState["Value"]["DataDescriptor"]["Unit"]["Quantity"] = unitQuantity;
+        signalJetState["Value"]["DataDescriptor"]["Unit"]["DisplayName"] = unitSymbol;
+    ScalingPtr postScaling = dataDescriptor.getPostScaling();
+        // SampleType::Invalid and ScaledSampleType::Invalid result in runtime error when we try to get them
+        // Due to thism getter functions are inside of try-catch blocks
+        SampleType postScalingInputSampleType;
+        ScaledSampleType postScalingOutputSampleType;
+        try {
+            postScalingInputSampleType = postScaling.getInputSampleType();
+        } catch(...) {
+            postScalingInputSampleType = SampleType::Invalid;
+        }
+        try {
+            postScalingOutputSampleType = postScaling.getOutputSampleType();
+        } catch(...) {
+            postScalingOutputSampleType = ScaledSampleType::Invalid;
+        }
+        signalJetState["Value"]["DataDescriptor"]["PostScaling"]["InputSampleType"] = int(postScalingInputSampleType);
+        signalJetState["Value"]["DataDescriptor"]["PostScaling"]["OutputSampleType"] = int(postScalingOutputSampleType);
+    StringPtr origin = dataDescriptor.getOrigin();
+        signalJetState["Value"]["DataDescriptor"]["Origin"] = toStdString(origin);
+    RatioPtr tickResolution = dataDescriptor.getTickResolution();
+        // If the tick resolution is not applicable to the signal, getter functions throw runtime errors
+        // Due to this, we have to use try-catch block and assign 0s as default values in that case
+        int64_t numerator;
+        int64_t denominator;
+        try {
+            numerator = tickResolution.getNumerator();
+            denominator = tickResolution.getDenominator();
+        } catch(...) {
+            numerator = 0;
+            denominator = 0;
+        }
+        signalJetState["Value"]["DataDescriptor"]["TickResolution"]["Numerator"] = numerator;
+        signalJetState["Value"]["DataDescriptor"]["TickResolution"]["Denominator"] = denominator;
+    RangePtr valueRange = dataDescriptor.getValueRange();
+        // If the value range is not applicable to the signal, getter functions throw runtime errors
+        // Due to this, we have to use try-catch block and assign 0s as default values in that case
+        double lowValue;
+        double highValue;
+        try {
+            lowValue = valueRange.getLowValue();
+            highValue = valueRange.getHighValue();
+        } catch(...) {
+            lowValue = 0;
+            highValue = 0;
+        }
+        signalJetState["Value"]["DataDescriptor"]["ValueRange"]["Low"] = lowValue;
+        signalJetState["Value"]["DataDescriptor"]["ValueRange"]["High"] = highValue;
+    
+    publishComponentJetState(signal.getGlobalId(), signalJetState);
+}
+
+/**
+ * @brief Parses an input port and prepares its Json representation for publishing as a Jet state.
+ * 
+ * @param inputPort Pointer to the input port which is parsed.
+ */
+void JetServer::prepareInputPortJetState(const InputPortPtr& inputPort)
+{
+    Json::Value inputPortJetState;
+    std::string inputPortName = inputPort.getName();
+
+    // Adding metadata
+    appendGlobalId(inputPort, inputPortJetState);
+    appendObjectType(inputPort, inputPortJetState);
+    appendActiveStatus(inputPort, inputPortJetState);
+    appendVisibleStatus(inputPort, inputPortJetState);
+    appendTags(inputPort, inputPortJetState);
+
+    bool requiresSignal = inputPort.getRequiresSignal();
+    inputPortJetState["RequiresSignal"] = requiresSignal;
+
+    publishComponentJetState(inputPort.getGlobalId(), inputPortJetState);
+}
+
+/**
+ * @brief Defines a callback function for a component which will be called when some event occurs in a structure
+ * of an openDAQ component.
+ * 
+ * @param component Pointer to the component for which a callback function is defined.
+ */
+void JetServer::createComponentCallback(const ComponentPtr& component)
+{
+    component.getOnComponentCoreEvent() += [this](const ComponentPtr& comp, const CoreEventArgsPtr& args)
+    {
+        auto parameters = args.getParameters();
+        auto keyList = parameters.getKeyList();
+        auto valueList = parameters.getValueList();
+
+        DictPtr<IString, IBaseObject> eventParameters = args.getParameters();
+        if(eventParameters.hasKey("Name")) { // Properties
+            OPENDAQ_EVENT_updateProperty(comp, eventParameters);
+        }
+        else if(eventParameters.hasKey("Active")) { // Active status
+            OPENDAQ_EVENT_updateActiveStatus(comp, eventParameters);
+        }
+    };
+
+}
+
+/**
+ * @brief Publishes a Json value as a Jet state to the specified path.
+ * 
+ * @param path Path which the Jet state will have.
+ * @param jetState Json representation of the Jet state.
+ */
+void JetServer::publishComponentJetState(const std::string& path, const Json::Value& jetState)
 {
     auto cb = [this](const Json::Value& value, std::string path) -> Json::Value
     {
         std::string message = "Want to change state with path: " + path + " with the value " + value.toStyledString() + "\n";
         logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-        ComponentPtr component = componentIdDict.get(path);
+        
+        // Actual work is done on a separate thread to handle simultaneous requests. Also, otherwise "jetset" tool would time out
+        std::thread([this, value, path]() 
+        {   
+            // We find component by searching relative to root device, so we have to remove its name from global ID of the component with provided path
+            std::string relativePath = removeRootDeviceId(path);
 
-        // We want to get one "jet state changed" event, so we have to disable state updates until we are finished with updates in opendaq
-        jetStateUpdateDisabled = true; 
-        // We would like to have "jet state changed" event even if we change at least one property value, at the time when something fails
-        bool atLeastOnePropertyChanged = false;
+            ComponentPtr component = rootDevice.findComponent(relativePath);
 
-        auto properties = component.getAllProperties();
-        for(auto property : properties)
-        {
-            std::string propertyName = property.getName();
-            if (!value.isMember(propertyName))
-            {
-                std::string message = "Skipping property " + propertyName + "\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-                continue;
-            }
+            Json::Value jetState = readJetState(path);
 
-            Json::ValueType jsonValueType = value.get(propertyName, "").type();
-            bool typesAreCompatible = checkTypeCompatibility(jsonValueType, property.getValueType());
-            if(!typesAreCompatible)
-            {
-                throwJetModuleException(JetModuleException::JM_INCOMPATIBLE_TYPES, propertyName);
-                continue;
-            }
+            for (auto it = value.begin(); it != value.end(); ++it) {
+                std::string entryName = it.key().asString();
+                Json::Value entryValue = *it;
 
-            std::string message = "Changing value for property " + propertyName + "\n";
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-            try
-            {
-                switch(jsonValueType)
-                {
-                    case Json::ValueType::intValue:
-                        {
-                            int64_t oldValue = component.getPropertyValue(propertyName);
-                            int64_t newValue = value.get(propertyName, "").asInt64(); 
-                            if (oldValue != newValue)
-                            {
-                                component.setPropertyValue(propertyName, newValue);
-                                atLeastOnePropertyChanged = true;
-                            }
-                            else
-                            {
-                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
-                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-                            }
-                        }
-                        break;
-                    case Json::ValueType::uintValue:
-                        {
-                            uint64_t oldValue = component.getPropertyValue(propertyName);
-                            uint64_t newValue = value.get(propertyName, "").asUInt64();
-                            if (oldValue != newValue)
-                            {
-                                component.setPropertyValue(propertyName, newValue);
-                                atLeastOnePropertyChanged = true;
-                            }
-                            else
-                            {
-                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
-                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-                            }
-                        }
-                        break;
-                    case Json::ValueType::realValue:
-                        {
-                            double oldValue = component.getPropertyValue(propertyName);
-                            double newValue = value.get(propertyName, "").asDouble();
-                            if (oldValue != newValue)
-                            {
-                                component.setPropertyValue(propertyName, newValue);
-                                atLeastOnePropertyChanged = true;
-                            }
-                            else
-                            {
-                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
-                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-                            }
-                        }
-                        break;
-                    case Json::ValueType::stringValue:
-                        {
-                            std::string oldValue = component.getPropertyValue(propertyName);
-                            std::string newValue = value.get(propertyName, "").asString();
-                            if (oldValue != newValue)
-                            {
-                                component.setPropertyValue(propertyName, newValue);
-                                atLeastOnePropertyChanged = true;
-                            }
-                            else
-                            {
-                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
-                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-                            }
-                        }
-                        break;
-                    case Json::ValueType::booleanValue:
-                        {
-                            bool oldValue = component.getPropertyValue(propertyName);
-                            bool newValue = value.get(propertyName, "").asBool();
-                            if (oldValue != newValue)
-                            {
-                                component.setPropertyValue(propertyName, newValue);
-                                atLeastOnePropertyChanged = true;
-                            }
-                            else
-                            {
-                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
-                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-                            }
-                        }
-                        break;
-                    case Json::ValueType::arrayValue:
-                        {
-                            ListPtr<BaseObjectPtr> oldDaqArray = component.getPropertyValue(propertyName);
-                            ListPtr<BaseObjectPtr> newDaqArray = convertJsonArrayToDaqArray(component, propertyName, value);
-                            if(oldDaqArray != newDaqArray)
-                            {
-                                component.setPropertyValue(propertyName, newDaqArray);
-                                atLeastOnePropertyChanged = true;
-                            }
-                            else
-                            {
-                                std::string message = "Value for " + propertyName + " has not changed. Skipping...\n";
-                                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
-                            }
-                        }
-                        break;
-                    case Json::ValueType::objectValue:
-                        {
-                            Json::Value obj = value.get(propertyName, Json::Value());
-                            convertJsonObjectToDaqObject(component, obj, propertyName + ".");
-                        }
-                        break;
-                    default:
-                        if(atLeastOnePropertyChanged == true)
-                            updateJetState(component);
-                        throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE, jsonValueType, propertyName, path);
-                        break;
+                if(component.hasProperty(entryName)) {
+                    JET_EVENT_updateProperty(component, entryName, entryValue);
+                }
+                else if(entryName == "Active") {
+                    JET_EVENT_updateActiveStatus(component, entryValue);
+                }
+                else if(entryName == "Tags") {
+                    // TODO: Implement a function which updates tags
                 }
             }
-            catch(...)
-            {
-                throwJetModuleException(JetModuleException::JM_UNSUPPORTED_JSON_TYPE, jsonValueType, propertyName, path);
-            }
-        }
 
-        jetStateUpdateDisabled = false;
-        updateJetState(component);
-        return Json::Value();
+        }).detach(); // detach is used to separate the thread of execution from the thread object, allowing execution to continue independently
+
+        return Json::Value(); // Return an empty Json as there's no need to return anything specific.
+        // TODO: Make sure that this is ok
     };
 
-    jetPeer->addStateAsync(path, jsonValue, hbk::jet::responseCallback_t(), cb);
-    jsonValue.clear();
+    jetPeer->addStateAsync(path, jetState, hbk::jet::responseCallback_t(), cb);
 }
 
 /**
@@ -299,16 +327,69 @@ void JetServer::publishComponentJetState(const std::string& path)
  * in the component's Jet state
  * 
  * @param component Component which is parsed to retrieve its properties.
+ * @param parentJsonValue Json object which is filled with representations of openDAQ properties.
  */
-void JetServer::parseComponentProperties(const ComponentPtr& component)
+void JetServer::parseComponentProperties(const ComponentPtr& component, Json::Value& parentJsonValue)
 {
     std::string propertyPublisherName = component.getName();
 
     auto properties = component.getAllProperties();
     for(auto property : properties) {
-        determinePropertyType<ComponentPtr>(component, property, jsonValue);
-        if(!propertyCallbacksCreated)
-            createCallbackForProperty(property);
+        determinePropertyType<ComponentPtr>(component, property, parentJsonValue);
+    }
+}
+
+/**
+ * @brief Parses a component to identify its signals and create Json representation for each of them, which then are published
+ * as individual Jet states.
+ * 
+ * @tparam ObjectType Type of the object which contatins signals.
+ * @param object Object which contains signals.
+ * @param parentJsonValue Json object to which signal names are appended.
+ */
+template <typename ObjectType>
+void JetServer::parseComponentSignals(const ObjectType& object, Json::Value& parentJsonValue)
+{
+    const auto signals = object.getSignals();
+    
+    // Add an empty Json entry if the object doesn't have signals
+    if(signals.getCount() == 0)
+    {
+        parentJsonValue["OutputSignals"] = Json::ValueType::nullValue;
+        return;
+    }
+
+    for(auto signal : signals) {
+        std::string signalName = signal.getName();
+        parentJsonValue["OutputSignals"].append(signalName); // Add a list entry to the parent object consisting of signal names
+
+        prepareSignalJetState(signal);
+    }
+}
+
+/**
+ * @brief Parses a component to identify its input ports and create Json representation for each of them, which then are published
+ * as individual Jet states.
+ * 
+ * @param functionBlock Object which contains input ports.
+ * @param parentJsonValue Json object to which input port names are appended.
+ */
+void JetServer::parseComponentInputPorts(const FunctionBlockPtr& functionBlock, Json::Value& parentJsonValue)
+{
+    const auto inputPorts = functionBlock.getInputPorts();
+
+    // Add an empty Json entry if the object doesn't have input ports
+    if(inputPorts.getCount() == 0)
+    {
+        parentJsonValue["InputPorts"] = Json::ValueType::nullValue;
+        return;
+    }
+
+    for(auto inputPort : inputPorts) {
+        std::string inputPortName = inputPort.getName();
+        parentJsonValue["InputPorts"].append(inputPortName); // Add a list entry to the parent object consisting of input port names
+
+        prepareInputPortJetState(inputPort);
     }
 }
 
@@ -318,7 +399,7 @@ void JetServer::parseComponentProperties(const ComponentPtr& component)
  * @tparam PropertyHolder Type of the object which owns the property.
  * @param propertyHolder Object which owns the property.
  * @param property The property whose type is determined.
- * @param parentJsonValue Json::Value object to which the property is appended.
+ * @param parentJsonValue Json object object to which the property is appended.
  */
 template <typename PropertyHolder>
 void JetServer::determinePropertyType(const PropertyHolder& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
@@ -386,34 +467,13 @@ void JetServer::determinePropertyType(const PropertyHolder& propertyHolder, cons
     }
 }
 
-void JetServer::updateJetState(const PropertyObjectPtr& propertyObject)
-{
-    ComponentPtr component = propertyObject.asPtr<IComponent>();
-    parseComponentProperties(component);   
-
-    std::string path = component.getGlobalId();
-    jetPeer->notifyState(path, jsonValue);
-    jsonValue.clear();
-}
-
-void JetServer::updateJetState(const ComponentPtr& component)
-{
-    parseComponentProperties(component);   
-
-    std::string path = component.getGlobalId();
-    jetPeer->notifyState(path, jsonValue);
-    jsonValue.clear();
-} 
-
-void JetServer::createCallbackForProperty(const PropertyPtr& property)
-{
-    property.getOnPropertyValueWrite() += [&](PropertyObjectPtr& obj, PropertyValueEventArgsPtr& args) {
-        if(!jetStateUpdateDisabled)
-            updateJetState(obj);
-    };
-}
-
 // TODO! arguments are not received from jet, need to find out why and fix
+/**
+ * @brief Creates a callable Jet object which calls an openDAQ function or procedure.
+ * 
+ * @param propertyPublisher Component which has a callable property.
+ * @param property Callable property.
+ */
 void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property)
 {
     std::string path = propertyPublisher.getGlobalId() + "/" + property.getName();
@@ -466,30 +526,8 @@ void JetServer::createJetMethod(const ComponentPtr& propertyPublisher, const Pro
     jetPeer->addMethodAsync(path, hbk::jet::responseCallback_t(), cb);
 }
 
-void JetServer::startJetEventloop()
-{
-    if(!jetEventloopRunning) {
-        jetEventloopRunning = true;
-        jetEventloop.execute();
-    }
-}
-
-void JetServer::stopJetEventloop()
-{
-    if(jetEventloopRunning) {
-        jetEventloopRunning = false;
-        jetEventloop.stop();
-        jetEventloopThread.join();
-    }
-}
-
-void JetServer::startJetEventloopThread()
-{
-    jetEventloopThread = std::thread{ &JetServer::startJetEventloop, this };
-}
-
 /**
- * @brief Appends simple properties types BoolProperty, IntProperty, FloatProperty and StringProperty to Json::Value object,
+ * @brief Appends simple propertiy types such as BoolProperty, IntProperty, FloatProperty and StringProperty to Json object,
  * in order to be represented in a Jet state.
  * 
  * @tparam PropertyHolderType Type of the object which owns the property.
@@ -505,206 +543,50 @@ void JetServer::appendSimpleProperty(const PropertyHolderType& propertyHolder, c
 }
 
 /**
- * @brief Appends ListProperty to Json::Value object in order to be represented in a Jet state.
+ * @brief Appends ListProperty to a Json object in order to be represented in a Jet state.
  * 
  * @tparam PropertyHolderType Type of the object which owns the property.
  * @param propertyHolder An object which owns the property.
  * @param property The property which is appended to a Jet state.
- * @param parentJsonValue Json::Value object to which the property is appended.
+ * @param parentJsonValue Json object to which the property is appended.
  */
 template<typename PropertyHolderType>
 void JetServer::appendListProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
     std::string propertyName = property.getName();
+    ListPtr<IBaseObject> opendaqList = propertyHolder.getPropertyValue(propertyName);
     CoreType listItemType = property.getItemType();
-    switch(listItemType)
-    {
-        case CoreType::ctBool:
-            fillListProperty<PropertyHolderType, bool>(propertyHolder, propertyName, parentJsonValue[propertyName]);
-            break;
-        case CoreType::ctInt:
-            fillListProperty<PropertyHolderType, int64_t>(propertyHolder, propertyName, parentJsonValue[propertyName]);
-            break;
-        case CoreType::ctFloat:
-            fillListProperty<PropertyHolderType, double>(propertyHolder, propertyName, parentJsonValue[propertyName]);
-            break;
-        case CoreType::ctString:
-            fillListProperty<PropertyHolderType, std::string>(propertyHolder, propertyName, parentJsonValue[propertyName]);
-            break;
-        case CoreType::ctRatio:
-            fillListPropertyWithRatio<PropertyHolderType>(propertyHolder, propertyName, parentJsonValue[propertyName]);
-            break;
-        case CoreType::ctComplexNumber:
-            // TODO: has to be implemented
-            break;
-        default:
-            {
-                std::string message = "Unsupported list item type: " + listItemType + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
-            }
-            break;
-    }
+
+    Json::Value jsonArray = convertOpendaqListToJsonArray(opendaqList, listItemType);
+    parentJsonValue[propertyName] = jsonArray;
 }
 
 /**
- * @brief Helper function which appends a ListProperty to a Json::Value object in order to be represented in a Jet state.
- * 
- * @tparam PropertyHolderType Type of the object which owns the property.
- * @tparam ItemType Type of the List items.
- * @param propertyHolder An object which owns the property.
- * @param propertyName Name of the property.
- * @param parentJsonValue Json::Value object to which the property is appended.
- */
-template <typename PropertyHolderType, typename ItemType>
-void JetServer::fillListProperty(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue)
-{
-    ListPtr<ItemType> propertyList = List<ItemType>();
-    propertyList = propertyHolder.getPropertyValue(propertyName);
-
-    for(const ItemType& item : propertyList) {
-        parentJsonValue.append(item);
-    }
-}
-
-/**
- * @brief Helper function which appends Ratio type object to a ListProperty in a a Json::Value object in order to be represented in a Jet state.
- * 
- * @tparam PropertyHolderType Type of the object which owns the property.
- * @param propertyHolder An object which owns the property.
- * @param propertyName Name of the property.
- * @param parentJsonValue Json::Value object to which the property is appended.
- */
-template <typename PropertyHolderType>
-void JetServer::fillListPropertyWithRatio(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue)
-{
-    ListPtr<IRatio> ratioList = List<IRatio>();
-    ratioList = propertyHolder.getPropertyValue(propertyName);
-
-    for(const RatioPtr& ratio : ratioList) {
-        Json::Value ratioJson;
-        int64_t numerator = ratio.getNumerator();
-        int64_t denominator = ratio.getDenominator();
-        ratioJson["Numerator"] = numerator;
-        ratioJson["Denominator"] = denominator;
-        parentJsonValue.append(ratioJson);
-    }
-}
-
-// non-string key types cannot be represented in Json::Value!!
-
-/**
- * @brief Appends DictProperty to Json::Value object in order to be represented in a Jet state. DictProperty is a collection of key-value pairs.
- * Non-string key types cannot be represented in Json::Value.
+ * @brief Appends DictProperty to a Json object in order to be represented in a Jet state.
  * 
  * @tparam PropertyHolderType Type of the object which owns the property.
  * @param propertyHolder An object which owns the property.
  * @param property The property which is appended to a Jet state.
- * @param parentJsonValue Json::Value object to which the property is appended.
+ * @param parentJsonValue Json object to which the property is appended.
  */
 template<typename PropertyHolderType>
 void JetServer::appendDictProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
 {
     std::string propertyName = property.getName();
-    CoreType keyCoreType = property.getKeyType();
-    //! Non-string key types cannot be represented in Json::Value!
-    switch(keyCoreType) {
-        // case CoreType::ctBool:
-            // determineDictItemType<PropertyHolderType, bool>(propertyHolder, property, parentJsonValue);
-            // break;
-        // case CoreType::ctInt:
-            // determineDictItemType<PropertyHolderType, int64_t>(propertyHolder, property, parentJsonValue);
-            // break;
-        // case CoreType::ctFloat:
-            // determineDictItemType<PropertyHolderType, double>(propertyHolder, property, parentJsonValue);
-            // break;
-        case CoreType::ctString:
-            determineDictItemType<PropertyHolderType, std::string>(propertyHolder, property, parentJsonValue);
-            break;
-        default:
-            {
-                std::string message = "Unsupported dictionary key type: " + keyCoreType + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
-            }
-            break;
-    }
-}
-
-/**
- * @brief Helper function which determines item type (value type key-value pairs) of a DictProperty.
- * 
- * @tparam PropertyHolderType Type of the object which owns the property.
- * @tparam KeyType Type of the keys (types of keys in key-value pairs) in a DictProperty.
- * @param propertyHolder An object which owns the property.
- * @param property The property which is appended to a Jet state.
- * @param parentJsonValue Json::Value object to which the property is appended.
- */
-template <typename PropertyHolderType, typename KeyType>
-void JetServer::determineDictItemType(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
-{
-    std::string propertyName = property.getName();
+    DictPtr<IString, IBaseObject> opendaqDict = propertyHolder.getPropertyValue(propertyName); //! Non-string key types cannot be represented in Json::Value!
     CoreType itemCoreType = property.getItemType();
 
-    switch(itemCoreType) {
-        case CoreType::ctBool:
-            fillDictProperty<PropertyHolderType, KeyType, bool>(propertyHolder, property, parentJsonValue);
-            break;
-        case CoreType::ctInt:
-            fillDictProperty<PropertyHolderType, KeyType, int64_t>(propertyHolder, property, parentJsonValue);
-            break;
-        case CoreType::ctFloat:
-            fillDictProperty<PropertyHolderType, KeyType, double>(propertyHolder, property, parentJsonValue);
-            break;
-        case CoreType::ctString:
-            fillDictProperty<PropertyHolderType, KeyType, std::string>(propertyHolder, property, parentJsonValue);
-            break;
-        case CoreType::ctRatio:
-            // TODO: has to be implemented
-            break;
-        case CoreType::ctComplexNumber:
-            // TODO: has to be implemented
-            break;
-        default:
-            {
-                std::string message = "Unsupported dictionary item type: " + itemCoreType + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
-            }
-            break;
-    }
+    Json::Value jsonDict = convertOpendaqDictToJsonDict(opendaqDict, itemCoreType);
+    parentJsonValue[propertyName] = jsonDict;
 }
 
 /**
- * @brief Helper function which appends a DictProperty to a Json::Value object in order to be represented in a Jet state.
- * 
- * @tparam PropertyHolderType Type of the object which owns the property.
- * @tparam KeyType Type of the keys (types of keys in key-value pairs) in a DictProperty.
- * @tparam ItemType Type of the items (values of keys in key-value pairs) in a DictProperty.
- * @param propertyHolder An object which owns the property.
- * @param property The property which is appended to a Jet state.
- * @param parentJsonValue Json::Value object to which the property is appended.
- */
-template <typename PropertyHolderType, typename KeyType, typename ItemType>
-void JetServer::fillDictProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
-{
-    std::string propertyName = property.getName();
-    DictPtr<KeyType, ItemType> dict = propertyHolder.getPropertyValue(propertyName);
-    // ListPtr<KeyType> keyList = dict.getKeyList();
-    ListPtr<std::string> keyList = dict.getKeyList(); // Dictionaries with only std::string key types can be represented in Json format!
-    ListPtr<ItemType> itemList = dict.getValueList();
-
-    for(size_t i = 0; i < dict.getCount(); i++) {
-        std::string key = keyList[i];
-        ItemType value = itemList[i];
-        parentJsonValue[propertyName][key] = value;
-    }
-}
-
-/**
- * @brief Appends RatioProperty to Json::Value object in order to be represented in a Jet state.
+ * @brief Appends RatioProperty to a Json object in order to be represented in a Jet state.
  * 
  * @tparam PropertyHolderType Type of the object which owns the property.
  * @param propertyHolder An object which owns the property.
  * @param propertyName Name of the property.
- * @param parentJsonValue Json::Value object to which the property is appended.
+ * @param parentJsonValue Json object to which the property is appended.
  */
 template<typename PropertyHolderType>
 void JetServer::appendRatioProperty(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue)
@@ -716,14 +598,14 @@ void JetServer::appendRatioProperty(const PropertyHolderType& propertyHolder, co
     parentJsonValue[propertyName]["Denominator"] = denominator;
 }
 
-//! This function needs testing!
+// TODO! This function is not tested
 /**
- * @brief Appends ComplexNumber object to Json::Value object in order to be represented in a Jet state.
+ * @brief Appends ComplexNumber object to a Json object in order to be represented in a Jet state.
  * 
  * @tparam PropertyHolderType Type of the object which owns the property.
  * @param propertyHolder An object which owns the property.
  * @param propertyName Name of the property.
- * @param parentJsonValue Json::Value object to which the property is appended.
+ * @param parentJsonValue Json object to which the property is appended.
  */
 template<typename PropertyHolderType>
 void JetServer::appendComplexNumber(const PropertyHolderType& propertyHolder, const std::string& propertyName, Json::Value& parentJsonValue)
@@ -735,14 +617,14 @@ void JetServer::appendComplexNumber(const PropertyHolderType& propertyHolder, co
     parentJsonValue[propertyName]["Imaginary"] = imag;
 }
 
-//! This function is not finished!
+// TODO! This function needs to be finished
 /**
- * @brief Appends StructProperty to Json::Value object in order to be represented in a Jet state.
+ * @brief Appends StructProperty to a Json object in order to be represented in a Jet state.
  * 
  * @tparam PropertyHolderType Type of the object which owns the property.
  * @param propertyHolder An object which owns the property.
  * @param property The property which is appended to a Jet state.
- * @param parentJsonValue Json::Value object to which the property is appended.
+ * @param parentJsonValue Json object to which the property is appended.
  */
 template<typename PropertyHolderType>
 void JetServer::appendStructProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
@@ -834,12 +716,12 @@ void JetServer::appendStructProperty(const PropertyHolderType& propertyHolder, c
 }
 
 /**
- * @brief Appends ObjectProperty to Json::Value object in order to be represented in a Jet state.
+ * @brief Appends ObjectProperty to a Json object in order to be represented in a Jet state.
  * 
  * @tparam PropertyHolderType Type of the object which owns the property.
  * @param propertyHolder An object which owns the property.
  * @param property The property which is appended to a Jet state.
- * @param parentJsonValue Json::Value object to which the property is appended.
+ * @param parentJsonValue Json object to which the property is appended.
  */
 template<typename PropertyHolderType>
 void JetServer::appendObjectProperty(const PropertyHolderType& propertyHolder, const PropertyPtr& property, Json::Value& parentJsonValue)
@@ -856,10 +738,10 @@ void JetServer::appendObjectProperty(const PropertyHolderType& propertyHolder, c
 }
 
 /**
- * @brief Appends device metadata information to Json::Value object which is published as a Jet state. 
+ * @brief Appends device metadata information to a Json object which is published as a Jet state. 
  * 
  * @param device Device from which metadata is retrieved.
- * @param parentJsonValue Json::Value object to which metadata is appended.
+ * @param parentJsonValue Json object to which metadata is appended.
  */
 void JetServer::appendDeviceMetadata(const DevicePtr& device, Json::Value& parentJsonValue)
 {
@@ -868,16 +750,14 @@ void JetServer::appendDeviceMetadata(const DevicePtr& device, Json::Value& paren
     for(auto property : deviceInfoProperties) 
     {
         determinePropertyType<DeviceInfoPtr>(deviceInfo, property, parentJsonValue);
-        if(!propertyCallbacksCreated)
-            createCallbackForProperty(property); // TODO: callbacks for device information properties don't seem to work. Need to find a way around
     }
 }
 
 /**
- * @brief Appends device domain data (e.g. time domain information) to Json::Value object which is published as a Jet state. 
+ * @brief Appends device domain data (e.g. time domain information) to a Json object which is published as a Jet state. 
  * 
  * @param device Device from which domain data is retrieved.
- * @param parentJsonValue Json::Value object to which domain data is appended.
+ * @param parentJsonValue Json object to which domain data is appended.
  */
 void JetServer::appendDeviceDomain(const DevicePtr& device, Json::Value& parentJsonValue)
 {
@@ -903,11 +783,11 @@ void JetServer::appendDeviceDomain(const DevicePtr& device, Json::Value& parentJ
 }
 
 /**
- * @brief Appends FunctionBlockInfo to Json::Value object which is published as a Jet state. 
+ * @brief Appends FunctionBlockInfo to a Json object which is published as a Jet state. 
  * FunctionBlockInfo is an information structure which contains metadata of the function block type.
  * 
  * @param functionBlock Function block from which FunctionBlockInfo structure is retrieved. Channel is a function block as well.
- * @param parentJsonValue  Json::Value object to which FunctionBlockInfo structure is appended.
+ * @param parentJsonValue  Json object to which FunctionBlockInfo structure is appended.
  */
 void JetServer::appendFunctionBlockInfo(const FunctionBlockPtr& functionBlock, Json::Value& parentJsonValue)
 {
@@ -922,157 +802,10 @@ void JetServer::appendFunctionBlockInfo(const FunctionBlockPtr& functionBlock, J
 }
 
 /**
- * @brief Appends input ports to Json::Value object which is published as a Jet state.
- * 
- * @param functionBlock Function block from which input ports are retrieved. Channel is a function block as well.
- * @param parentJsonValue Json::Value object to which input ports are appended.
- */
-void JetServer::appendInputPorts(const FunctionBlockPtr& functionBlock, Json::Value& parentJsonValue)
-{
-    const auto inputPorts = functionBlock.getInputPorts();
-
-    // Add an empty Json entry if the object doesn't have input ports
-    if(inputPorts.getCount() == 0)
-    {
-        parentJsonValue["InputPorts"] = Json::ValueType::nullValue;
-        return;
-    }
-
-    for(auto inputPort : inputPorts) {
-        std::string name = inputPort.getName();
-
-        // Adding metadata
-        appendGlobalId(inputPort, parentJsonValue["InputPorts"][name]);
-        appendObjectType(inputPort, parentJsonValue["InputPorts"][name]);
-        appendActiveStatus(inputPort, parentJsonValue["InputPorts"][name]);
-        appendVisibleStatus(inputPort, parentJsonValue["InputPorts"][name]);
-        appendTags(inputPort, parentJsonValue["InputPorts"][name]);
-
-        bool requiresSignal = inputPort.getRequiresSignal();
-        parentJsonValue["InputPorts"][name]["RequiresSignal"] = requiresSignal;
-    }
-}
-
-/**
- * @brief Appends output signals to Json::Value object which is published as a Jet state.
- * 
- * @tparam ObjectType Type of object from which signals are retrieved (e.g. DevicePtr, ChannelPtr...)
- * @param object Object from which signals are retrieved.
- * @param parentJsonValue Json::Value object to which signals are appended.
- */
-template <typename ObjectType>
-void JetServer::appendOutputSignals(const ObjectType& object, Json::Value& parentJsonValue)
-{
-    const auto signals = object.getSignals();
-    
-    // Add an empty Json entry if the object doesn't have signals
-    if(signals.getCount() == 0)
-    {
-        parentJsonValue["OutputSignals"] = Json::ValueType::nullValue;
-        return;
-    }
-
-    for(auto signal : signals) {
-        std::string signalName = signal.getName();
-
-        // Adding metadata
-        appendGlobalId(signal, parentJsonValue["OutputSignals"][signalName]);
-        appendObjectType(signal, parentJsonValue["OutputSignals"][signalName]);
-        appendActiveStatus(signal, parentJsonValue["OutputSignals"][signalName]);
-        appendVisibleStatus(signal, parentJsonValue["OutputSignals"][signalName]);
-        appendTags(signal, parentJsonValue["OutputSignals"][signalName]);
-
-        DataDescriptorPtr dataDescriptor = signal.getDescriptor();
-
-        // If data descriptor is empty add an empty Json enrtry
-        if(dataDescriptor.assigned() == false) {
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"] = Json::ValueType::nullValue;
-            continue;
-        }
-
-        std::string name = dataDescriptor.getName();
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Name"] = name;
-        ListPtr<IDimension> dimensions = dataDescriptor.getDimensions();
-            size_t dimensionsCount = dimensions.getCount();
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Dimensions"] = dimensionsCount;
-        DictPtr<IString, IString> metadata = dataDescriptor.getMetadata();
-            size_t metadataCount = metadata.getCount();
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Metadata"] = metadataCount;
-        DataRulePtr rule = dataDescriptor.getRule();
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Rule"] = std::string(rule);
-        SampleType sampleType;
-            // SampleType::Invalid results in runtime error when we try to get the sample type
-            // Due to this, getter function is inside of try-catch block
-            try {
-                sampleType = dataDescriptor.getSampleType();
-            } catch(...) {
-                sampleType = SampleType::Invalid;
-            }
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["SampleType"] = int(sampleType);
-        UnitPtr unit = dataDescriptor.getUnit();
-            int64_t unitId = unit.getId();
-            std::string unitName = unit.getName();
-            std::string unitQuantity = unit.getQuantity();
-            std::string unitSymbol = unit.getSymbol();
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Unit"]["UnitId"] = unitId;
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Unit"]["Description"] = unitName;
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Unit"]["Quantity"] = unitQuantity;
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Unit"]["DisplayName"] = unitSymbol;
-        ScalingPtr postScaling = dataDescriptor.getPostScaling();
-            // SampleType::Invalid and ScaledSampleType::Invalid result in runtime error when we try to get them
-            // Due to thism getter functions are inside of try-catch blocks
-            SampleType postScalingInputSampleType;
-            ScaledSampleType postScalingOutputSampleType;
-            try {
-                postScalingInputSampleType = postScaling.getInputSampleType();
-            } catch(...) {
-                postScalingInputSampleType = SampleType::Invalid;
-            }
-            try {
-                postScalingOutputSampleType = postScaling.getOutputSampleType();
-            } catch(...) {
-                postScalingOutputSampleType = ScaledSampleType::Invalid;
-            }
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["PostScaling"]["InputSampleType"] = int(postScalingInputSampleType);
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["PostScaling"]["OutputSampleType"] = int(postScalingOutputSampleType);
-        StringPtr origin = dataDescriptor.getOrigin();
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["Origin"] = toStdString(origin);
-        RatioPtr tickResolution = dataDescriptor.getTickResolution();
-            // If the tick resolution is not applicable to the signal, getter functions throw runtime errors
-            // Due to this, we have to use try-catch block and assign 0s as default values in that case
-            int64_t numerator;
-            int64_t denominator;
-            try {
-                numerator = tickResolution.getNumerator();
-                denominator = tickResolution.getDenominator();
-            } catch(...) {
-                numerator = 0;
-                denominator = 0;
-            }
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["TickResolution"]["Numerator"] = numerator;
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["TickResolution"]["Denominator"] = denominator;
-        RangePtr valueRange = dataDescriptor.getValueRange();
-            // If the value range is not applicable to the signal, getter functions throw runtime errors
-            // Due to this, we have to use try-catch block and assign 0s as default values in that case
-            double lowValue;
-            double highValue;
-            try {
-                lowValue = valueRange.getLowValue();
-                highValue = valueRange.getHighValue();
-            } catch(...) {
-                lowValue = 0;
-                highValue = 0;
-            }
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["ValueRange"]["Low"] = lowValue;
-            parentJsonValue["OutputSignals"][signalName]["Value"]["DataDescriptor"]["ValueRange"]["High"] = highValue;
-    }
-}
-
-/**
- * @brief Appends Global ID (global unique identified of the object) to Json::Value object which is published as a Jet state.
+ * @brief Appends Global ID (global unique identified of the object) to a Json object which is published as a Jet state.
  * 
  * @param component Component from which Global ID is retrieved.
- * @param parentJsonValue Json::Value object to which Global ID is appended.
+ * @param parentJsonValue Json object to which Global ID is appended.
  */
 void JetServer::appendGlobalId(const ComponentPtr& component, Json::Value& parentJsonValue)
 {
@@ -1081,10 +814,10 @@ void JetServer::appendGlobalId(const ComponentPtr& component, Json::Value& paren
 }
 
 /**
- * @brief Appends type of the object (e.g. Device, Channel...) to Json::Value object which is published as a Jet state.
+ * @brief Appends type of the object (e.g. Device, Channel...) to a Json object which is published as a Jet state.
  * 
  * @param component Component from which type is retrieved.
- * @param parentJsonValue Json::Value object to which component's type is appended.
+ * @param parentJsonValue Json object to which component's type is appended.
  */
 void JetServer::appendObjectType(const ComponentPtr& component, Json::Value& parentJsonValue)
 {
@@ -1093,10 +826,10 @@ void JetServer::appendObjectType(const ComponentPtr& component, Json::Value& par
 }
 
 /**
- * @brief Appends a component's activity status (true or false) to Json::Value object which is published as a Jet state.
+ * @brief Appends a component's activity status (true or false) to a Json object which is published as a Jet state.
  * 
  * @param component Component from which activity status is retrieved.
- * @param parentJsonValue Json::Value object to which activity status is appended.
+ * @param parentJsonValue Json object to which activity status is appended.
  */
 void JetServer::appendActiveStatus(const ComponentPtr& component, Json::Value& parentJsonValue)
 {
@@ -1105,10 +838,10 @@ void JetServer::appendActiveStatus(const ComponentPtr& component, Json::Value& p
 }
 
 /**
- * @brief Appends a component's visibility status (true or false) to Json::Value object which is published as a Jet state.
+ * @brief Appends a component's visibility status (true or false) to a Json object which is published as a Jet state.
  * 
  * @param component Component from which visibility status is retrieved.
- * @param parentJsonValue Json::Value object to which visibility status is appended.
+ * @param parentJsonValue Json object to which visibility status is appended.
  */
 void JetServer::appendVisibleStatus(const ComponentPtr& component, Json::Value& parentJsonValue)
 {
@@ -1117,10 +850,10 @@ void JetServer::appendVisibleStatus(const ComponentPtr& component, Json::Value& 
 }
 
 /**
- * @brief Appends tags (user definable labels) to Json::Value object which is published as a Jet state.
+ * @brief Appends tags (user definable labels) to a Json object which is published as a Jet state.
  * 
  * @param component Component from which tags are retrieved.
- * @param parentJsonValue Json::Value object to which tags are appended.
+ * @param parentJsonValue Json object to which tags are appended.
  */
 void JetServer::appendTags(const ComponentPtr& component, Json::Value& parentJsonValue)
 {
@@ -1136,6 +869,257 @@ void JetServer::appendTags(const ComponentPtr& component, Json::Value& parentJso
     for(const std::string& item : tagsList)
         parentJsonValue["Tags"].append(item);
     
+}
+
+/**
+ * @brief Addresses to a property value change initiated by openDAQ client/server.
+ * 
+ * @param component Component whose property value is changed.
+ * @param eventParameters Dictionary filled with data describing the change.
+ */
+void JetServer::OPENDAQ_EVENT_updateProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
+{
+    std::string propertyName = eventParameters.get("Name");
+    CoreType propertyType = component.getProperty(propertyName).getValueType();
+
+    switch(propertyType) {
+        case CoreType::ctBool:
+            OPENDAQ_EVENT_updateSimpleProperty<bool>(component, eventParameters);
+            break;
+        case CoreType::ctInt:
+            OPENDAQ_EVENT_updateSimpleProperty<int64_t>(component, eventParameters);
+            break;
+        case CoreType::ctFloat:
+            OPENDAQ_EVENT_updateSimpleProperty<double>(component, eventParameters);
+            break;
+        case CoreType::ctString:
+            OPENDAQ_EVENT_updateSimpleProperty<std::string>(component, eventParameters);
+            break;
+        case CoreType::ctList:
+            OPENDAQ_EVENT_updateListProperty(component, eventParameters);
+            break;
+        case CoreType::ctDict:
+            OPENDAQ_EVENT_updateDictProperty(component, eventParameters);
+            break;
+        case CoreType::ctRatio:
+            break;
+        case CoreType::ctComplexNumber:
+            break;
+        case CoreType::ctStruct:
+            break;
+        case CoreType::ctObject:
+            break;
+        case CoreType::ctProc:
+            break;
+        case CoreType::ctFunc:
+            break;
+        default:
+            break;
+    }
+
+}
+
+/**
+ * @brief Addresses to a simple property (BoolProperty, IntProperty, FloatProperty and StringProperty) value change initiated 
+ * by openDAQ client/server.
+ * 
+ * @tparam DataType Type of the property (bool, int64_t, double or std::string).
+ * @param component Component whose property value is changed.
+ * @param eventParameters Dictionary filled with data describing the change.
+ */
+template <typename DataType>
+void JetServer::OPENDAQ_EVENT_updateSimpleProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
+{
+    std::string path = component.getGlobalId();
+    Json::Value jetState = readJetState(path);
+
+    std::string propertyName = eventParameters.get("Name");
+    DataType propertyValue = eventParameters.get("Value");
+    std::string propertyPath = eventParameters.get("Path");
+
+    jetState[propertyPath + propertyName] = propertyValue;
+    jetPeer->notifyState(path, jetState);
+}
+
+/**
+ * @brief Addresses to a list property value change initiated by openDAQ client/server.
+ * 
+ * @param component Component whose property value is changed.
+ * @param eventParameters Dictionary filled with data describing the change.
+ */
+void JetServer::OPENDAQ_EVENT_updateListProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
+{
+    std::string path = component.getGlobalId();
+    Json::Value jetState = readJetState(path);
+
+    std::string propertyName = eventParameters.get("Name");
+    ListPtr<IBaseObject> propertyValue = eventParameters.get("Value");
+    std::string propertyPath = eventParameters.get("Path");
+
+    CoreType listItemType = component.getProperty(propertyName).getItemType();
+    Json::Value newPropertyValue = convertOpendaqListToJsonArray(propertyValue, listItemType);
+
+    jetState[propertyPath + propertyName] = newPropertyValue;
+    jetPeer->notifyState(path, jetState);
+}
+
+/**
+ * @brief Addresses to a dict property value change initiated by openDAQ client/server.
+ * 
+ * @param component Component whose property value is changed.
+ * @param eventParameters Dictionary filled with data describing the change.
+ */
+void JetServer::OPENDAQ_EVENT_updateDictProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
+{
+    std::string path = component.getGlobalId();
+    Json::Value jetState = readJetState(path);
+
+    std::string propertyName = eventParameters.get("Name");
+    DictPtr<IString, IBaseObject> propertyValue = eventParameters.get("Value");
+    std::string propertyPath = eventParameters.get("Path");
+
+    CoreType dictItemType = component.getProperty(propertyName).getItemType();
+    Json::Value newPropertyValue = convertOpendaqDictToJsonDict(propertyValue, dictItemType);
+
+    jetState[propertyPath + propertyName] = newPropertyValue;
+    jetPeer->notifyState(path, jetState);
+}
+
+/**
+ * @brief Addresses to a "Active" status change initiated by openDAQ client/server.
+ * 
+ * @param component Component whose "Active" status is changed.
+ * @param eventParameters Dictionary filled with data describing the change.
+ */
+void JetServer::OPENDAQ_EVENT_updateActiveStatus(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
+{
+    std::string path = component.getGlobalId();
+    Json::Value jetState = readJetState(path);
+
+    bool newActiveStatus = eventParameters.get("Active");
+
+    jetState["Active"] = newActiveStatus;
+    jetPeer->notifyState(path, jetState);
+}
+
+/**
+ * @brief Addresses to a property value change initiated by a Jet peer.
+ * 
+ * @param component Component whose property value is changed.
+ * @param propertyName Name of the property.
+ * @param newPropertyValue Json object representing new value of the property.
+ */
+void JetServer::JET_EVENT_updateProperty(const ComponentPtr& component, const std::string& propertyName, const Json::Value& newPropertyValue)
+{
+    CoreType propertyType = component.getProperty(propertyName).getValueType();
+
+    switch(propertyType) {
+        case CoreType::ctBool:
+            JET_EVENT_updateSimpleProperty<bool>(component, propertyName, newPropertyValue.asBool());
+            break;
+        case CoreType::ctInt:
+            JET_EVENT_updateSimpleProperty<int64_t>(component, propertyName, newPropertyValue.asInt64());
+            break;
+        case CoreType::ctFloat:
+            JET_EVENT_updateSimpleProperty<double>(component, propertyName, newPropertyValue.asDouble());
+            break;
+        case CoreType::ctString:
+            JET_EVENT_updateSimpleProperty<std::string>(component, propertyName, newPropertyValue.asString());
+            break;
+        case CoreType::ctList:
+            JET_EVENT_updateListProperty(component, propertyName, newPropertyValue);
+            break;
+        case CoreType::ctDict:
+            JET_EVENT_updateDictProperty(component, propertyName, newPropertyValue);
+            break;
+        case CoreType::ctRatio:
+            break;
+        case CoreType::ctComplexNumber:
+            break;
+        case CoreType::ctStruct:
+            break;
+        case CoreType::ctObject:
+            break;
+        case CoreType::ctProc:
+            break;
+        case CoreType::ctFunc:
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * @brief Addresses to a simple property (BoolProperty, IntProperty, FloatProperty and StringProperty) value change initiated by a Jet peer.
+ * 
+ * @tparam DataType Type of the property (bool, int64_t, double or std::string).
+ * @param component Component whose property value is changed.
+ * @param propertyName Name of the property.
+ * @param newPropertyValue New value of the property received from Jet.
+ */
+template <typename DataType>
+void JetServer::JET_EVENT_updateSimpleProperty(const ComponentPtr& component, const std::string& propertyName, const DataType& newPropertyValue)
+{
+    component.setPropertyValue(propertyName, newPropertyValue);
+}
+
+/**
+ * @brief Addresses to a list property value change initiated by a Jet peer.
+ * 
+ * @param component Component whose property value is changed.
+ * @param propertyName Name of the property.
+ * @param newJsonArray Json object containing new value of the list property.
+ */
+void JetServer::JET_EVENT_updateListProperty(const ComponentPtr& component, const std::string& propertyName, const Json::Value& newJsonArray)
+{
+    ListPtr<IBaseObject> newOpendaqList = convertJsonArrayToOpendaqList(newJsonArray);
+    component.setPropertyValue(propertyName, newOpendaqList);
+}
+
+/**
+ * @brief Addresses to a dict property value change initiated by a Jet peer.
+ * 
+ * @param component Component whose property value is changed.
+ * @param propertyName Name of the property.
+ * @param newJsonDict Json object containing new value of the dict property.
+ */
+void JetServer::JET_EVENT_updateDictProperty(const ComponentPtr& component, const std::string& propertyName, const Json::Value& newJsonDict)
+{
+    DictPtr<IString, IBaseObject> newOpendaqDict = convertJsonDictToOpendaqDict(newJsonDict);
+    component.setPropertyValue(propertyName, newOpendaqDict);
+}
+
+/**
+ * @brief Addresses to "Active" status change initiated by a Jet peer.
+ * 
+ * @param component Component whose "Active" status is changed.
+ * @param newActiveStatus Json object containing new value for "Active" status.
+ */
+void JetServer::JET_EVENT_updateActiveStatus(const ComponentPtr& component, const Json::Value& newActiveStatus)
+{
+    component.setActive(newActiveStatus.asBool());
+}
+
+void JetServer::startJetEventloop()
+{
+    if(!jetEventloopRunning) {
+        jetEventloopRunning = true;
+        jetEventloop.execute();
+    }
+}
+
+void JetServer::stopJetEventloop()
+{
+    if(jetEventloopRunning) {
+        jetEventloopRunning = false;
+        jetEventloop.stop();
+        jetEventloopThread.join();
+    }
+}
+
+void JetServer::startJetEventloopThread()
+{
+    jetEventloopThread = std::thread{ &JetServer::startJetEventloop, this };
 }
 
 END_NAMESPACE_JET_MODULE
