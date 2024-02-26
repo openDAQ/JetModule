@@ -23,6 +23,8 @@
 #include <json/writer.h>
 
 
+#define JET_GET_VALUE_TIMEOUT (1) // 1 second
+
 using namespace daq;
 using namespace daq::modules::jet_module;
 using namespace hbk::jet;
@@ -67,8 +69,10 @@ protected:
         delete jetServer;
     }
 
-    Json::Value getPropertyValueInJet(const std::string& propertyName, const Json::Value& defaultValue);
+    Json::Value getPropertyValueInJet(const std::string& propertyName);
+    Json::Value getPropertyValueInJetTimeout(const std::string& propertyName, const Json::Value& expectedValue);
     Json::Value getPropertyListInJet(const std::string& propertyName);
+    Json::Value getPropertyListInJetTimeout(const std::string& propertyName, const std::vector<std::string>& expectedValueVector);
     void setPropertyValueInJet(const std::string& propertyName, const Json::Value& newValue);
     void setPropertyListInJet(const std::string& propertyName, const std::vector<std::string>& newValue);
 };
@@ -77,19 +81,38 @@ protected:
  * @brief Gets a property value from a Jet state.
  * 
  * @param propertyName Name of the property.
- * @param defaultValue Return value if the property is not found in Jet.
  * @return Json::Value object which contains the property value in the Jet state.
  */
-Json::Value JetServerTest::getPropertyValueInJet(const std::string& propertyName, const Json::Value& defaultValue)
+Json::Value JetServerTest::getPropertyValueInJet(const std::string& propertyName)
 {
-    Json::Value jetStates = readJetStates();
-    for (const Json::Value& item : jetStates) {
-        if (item[hbk::jet::PATH] == rootDevicePath) {
-            Json::Value valueInJet = item[hbk::jet::VALUE].get(propertyName, defaultValue);
-            return valueInJet;
+    Json::Value jetState = jetServer->readJetState(rootDevice.getGlobalId());
+    Json::Value valueInJet = jetState.get(propertyName, Json::Value()); // default value is empty Json
+    return valueInJet;
+}
+
+/**
+ * @brief Gets a property value from a Jet state. Expected value is passed to repeteadly read a Jet state for a given time. This is needed
+ * in cases where value change in Jet needs some time to be propagated.
+ * 
+ * @param propertyName Name of the property.
+ * @param expectedValue Value expected to be read from a Jet state.
+ * @return Json::Value object which contains the property value in the Jet state.
+ */
+Json::Value JetServerTest::getPropertyValueInJetTimeout(const std::string& propertyName, const Json::Value& expectedValue)
+{
+    Json::Value valueInJet;
+
+    auto startTime = std::chrono::high_resolution_clock::now();
+    auto timeout = std::chrono::seconds(JET_GET_VALUE_TIMEOUT);
+    do {
+        valueInJet = getPropertyValueInJet(propertyName);
+        if (valueInJet == expectedValue) {
+            break;
         }
-    }
-    return defaultValue; // Return default if not found
+        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // Wait a bit before retrying
+    } while (std::chrono::high_resolution_clock::now() - startTime < timeout);
+
+    return valueInJet;
 }
 
 /**
@@ -108,6 +131,38 @@ Json::Value JetServerTest::getPropertyListInJet(const std::string& propertyName)
         }
     }
     return Json::Value(); // Return empty json if not found
+}
+
+/**
+ * @brief Gets a list property value from a Jet state. Expected value is passed to repeteadly read a Jet state for a given time. This is needed
+ * in cases where value change in Jet needs some time to be propagated.
+ * 
+ * @param propertyName Name of the property.
+ * @param expectedValueVector Value expected to be read from a Jet state.
+ * @return Json::Value object which contains the property value in the Jet state.
+ */
+Json::Value JetServerTest::getPropertyListInJetTimeout(const std::string& propertyName, const std::vector<std::string>& expectedValueVector)
+{
+    Json::Value expectedValueJson;
+    Json::Value array(Json::arrayValue);
+    for (auto val : expectedValueVector) {
+        array.append(val);
+    }
+    expectedValueJson[propertyName] = array;
+
+    Json::Value valueInJet;
+
+    auto startTime = std::chrono::high_resolution_clock::now();
+    auto timeout = std::chrono::seconds(JET_GET_VALUE_TIMEOUT);
+    do {
+        valueInJet = getPropertyListInJet(propertyName);
+        if (valueInJet == expectedValueJson) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // Wait a bit before retrying
+    } while (std::chrono::high_resolution_clock::now() - startTime < timeout);
+
+    return valueInJet;
 }
 
 /**
@@ -314,4 +369,13 @@ void modifyJetState(const char* valueType, const std::string& path, const char* 
             std::cerr << "error while parsing json!" << std::endl;
         }
     }
+}
+
+Json::Value convertVectorToJson(const std::vector<std::string>& vector)
+{
+    Json::Value array(Json::arrayValue);
+    for (auto val : vector) {
+        array.append(val);
+    }
+    return array;
 }
