@@ -9,6 +9,8 @@ set(SRC_Include
     jet_server_base.h
     jet_server.h
     jet_module_exceptions.h
+    opendaq_to_json_converters.h
+    json_to_opendaq_converters.h
     version.h
 )
 
@@ -19,6 +21,8 @@ set(SRC_Srcs
     jet_server_base.cpp
     jet_server.cpp
     jet_module_exceptions.cpp
+    opendaq_to_json_converters.cpp
+    json_to_opendaq_converters.cpp
 )
 
 # Prepend path to header files
