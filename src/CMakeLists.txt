@@ -6,11 +6,18 @@ set(SRC_Include
     common.h
     module_dll.h
     jet_module_impl.h
-    jet_server_base.h
+    jet_peer_wrapper.h
     jet_server.h
     jet_module_exceptions.h
-    opendaq_to_json_converters.h
-    json_to_opendaq_converters.h
+    property_converter.h
+    component_converter.h
+    device_converter.h
+    function_block_converter.h
+    channel_converter.h
+    signal_converter.h
+    input_port_converter.h
+    opendaq_event_handler.h
+    jet_event_handler.h
     version.h
 )
 
@@ -18,11 +25,18 @@ set(SRC_Include
 set(SRC_Srcs 
     module_dll.cpp
     jet_module_impl.cpp
-    jet_server_base.cpp
+    jet_peer_wrapper.cpp
     jet_server.cpp
     jet_module_exceptions.cpp
-    opendaq_to_json_converters.cpp
-    json_to_opendaq_converters.cpp
+    property_converter.cpp
+    component_converter.cpp
+    device_converter.cpp
+    function_block_converter.cpp
+    channel_converter.cpp
+    signal_converter.cpp
+    input_port_converter.cpp
+    opendaq_event_handler.cpp
+    jet_event_handler.cpp
 )
 
 # Prepend path to header files

@@ -14,10 +14,19 @@
  * limitations under the License.
  */
 #pragma once
-#include <json/value.h>
-#include <opendaq/device_impl.h>
+#include "common.h"
+#include "component_converter.h"
 
-using namespace daq;
+BEGIN_NAMESPACE_JET_MODULE
 
-Json::Value convertOpendaqListToJsonArray(const ListPtr<IBaseObject>& opendaqList, const CoreType& listItemType);
-Json::Value convertOpendaqDictToJsonDict(const DictPtr<IString, IBaseObject>& opendaqDict, const CoreType& dictItemType);
+class InputPortConverter : public ComponentConverter 
+{
+public:
+    InputPortConverter(const InstancePtr& opendaqInstance) : ComponentConverter(opendaqInstance) {}
+    void composeJetState(const ComponentPtr& component) override;
+
+private:
+    void appendInputPortInfo(const InputPortPtr& inputPort, Json::Value& parentJsonValue);
+};
+
+END_NAMESPACE_JET_MODULE

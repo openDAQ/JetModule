@@ -1,48 +1,41 @@
-#include <iostream>
-#include "jet_server_base.h"
+#include "jet_peer_wrapper.h"
+#include <opendaq/logger_component_factory.h>
 
 BEGIN_NAMESPACE_JET_MODULE
 
 static hbk::sys::EventLoop jetStateReadEventloop;
 
-JetServerBase::JetServerBase()
+JetPeerWrapper::JetPeerWrapper()
 {
     // initiate openDAQ logger
-    logger = LoggerComponent("JetModuleLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
+    logger = LoggerComponent("JetPeerWrapperLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
+
+    jetEventloopRunning = false; // TODO: This probably has to be removed
+
+    startJetEventloopThread();
+    jetPeer = new hbk::jet::PeerAsync(jetEventloop, hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0);
 }
 
-void JetServerBase::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index)
+JetPeerWrapper::~JetPeerWrapper()
 {
-    Json::ValueType jsonValueType = args[index].type();
-    switch(jsonValueType)
-    {
-        case Json::ValueType::nullValue:
-            {
-                std::string message = "Null argument type detected!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
-            }
-            break;
-        case Json::ValueType::intValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asInt());
-            break;
-        case Json::ValueType::uintValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asUInt());
-            break;
-        case Json::ValueType::realValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asDouble());
-            break;
-        case Json::ValueType::stringValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asString());
-            break;
-        case Json::ValueType::booleanValue:
-            daqArg.asPtr<IList>().pushBack(args[index].asBool());
-            break;
-        default:
-        {
-            std::string message = "Unsupported argument detected: " + jsonValueType + '\n';
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
-        }
-    }
+    stopJetEventloop();
+    delete(jetPeer);
+}
+
+/**
+ * @brief Publishes a Json value as a Jet state to the specified path.
+ * 
+ * @param path Path which the Jet state will have.
+ * @param jetState Json representation of the Jet state.
+ */
+void JetPeerWrapper::publishJetState(const std::string& path, const Json::Value& jetState, JetStateCallback callback)
+{
+    jetPeer->addStateAsync(path, jetState, hbk::jet::responseCallback_t(), callback);
+}
+
+void JetPeerWrapper::publishJetMethod(const std::string& path, JetMethodCallback callback)
+{
+    jetPeer->addMethodAsync(path, hbk::jet::responseCallback_t(), callback);
 }
 
 /**
@@ -51,7 +44,7 @@ void JetServerBase::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json:
  * @param path Path of the Jet state which is read.
  * @return Json::Value object containing a Json representation of the Jet state.
  */
-Json::Value JetServerBase::readJetState(const std::string& path)
+Json::Value JetPeerWrapper::readJetState(const std::string& path)
 {
     std::string address("127.0.0.1"); // localhost
     unsigned int port = hbk::jet::JETD_TCP_PORT;
@@ -78,10 +71,12 @@ Json::Value JetServerBase::readJetState(const std::string& path)
 
     // Making sure that size of the array of Json objects is exactly 1
     if(jetState.size() == 0) {
-        //TODO! Need to throw an exception
+        std::string message = "Could not read Jet state with path: " + path + "!\n";
+        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
     }
     else if(jetState.size() != 1) {
-        //TODO! Need to throw an exception
+        std::string message = "There are multiple Jet states with path: " + path + "!\n";
+        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
     }
 
     // We get the first Json object in the array and get its value afterwards (Json object comes with path&value pair, we only need value)
@@ -90,7 +85,12 @@ Json::Value JetServerBase::readJetState(const std::string& path)
     return jetState;
 }
 
-void JetServerBase::readJetStateCb(std::promise<Json::Value>& promise, const Json::Value& value)
+void JetPeerWrapper::updateJetState(const std::string& path, const Json::Value newValue)
+{
+    jetPeer->notifyState(path, newValue);
+}
+
+void JetPeerWrapper::readJetStateCb(std::promise<Json::Value>& promise, const Json::Value& value)
 {
     // value contains the data as an array of objects
     Json::Value jetState = value[hbk::jsonrpc::RESULT];
@@ -100,14 +100,7 @@ void JetServerBase::readJetStateCb(std::promise<Json::Value>& promise, const Jso
     jetStateReadEventloop.stop();
 }
 
-// TODO! This function is not finished
-void JetServerBase::modifyJetState(const std::string& path, const std::string& entryName, const Json::Value& entryValue)
-{
-    Json::Value jetStateBefore = readJetState(path);
-    
-}
-
-std::string JetServerBase::removeRootDeviceId(const std::string& path)
+std::string JetPeerWrapper::removeRootDeviceId(const std::string& path)
 {
     std::string relativePath = path;
     // Find the position of the first slash
@@ -126,6 +119,28 @@ std::string JetServerBase::removeRootDeviceId(const std::string& path)
     }
 
     return relativePath;
+}
+
+void JetPeerWrapper::startJetEventloop()
+{
+    if(!jetEventloopRunning) {
+        jetEventloopRunning = true;
+        jetEventloop.execute();
+    }
+}
+
+void JetPeerWrapper::stopJetEventloop()
+{
+    if(jetEventloopRunning) {
+        jetEventloopRunning = false;
+        jetEventloop.stop();
+        jetEventloopThread.join();
+    }
+}
+
+void JetPeerWrapper::startJetEventloopThread()
+{
+    jetEventloopThread = std::thread{ &JetPeerWrapper::startJetEventloop, this };
 }
 
 END_NAMESPACE_JET_MODULE
