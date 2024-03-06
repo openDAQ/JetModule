@@ -14,11 +14,19 @@
  * limitations under the License.
  */
 #pragma once
-#include <json/value.h>
-#include <opendaq/device_impl.h>
+#include "common.h"
+#include "component_converter.h"
 
-using namespace daq;
+BEGIN_NAMESPACE_JET_MODULE
 
-ListPtr<IBaseObject> convertJsonArrayToOpendaqList(const Json::Value& jsonArray);
-DictPtr<IString, IBaseObject> convertJsonDictToOpendaqDict(const Json::Value& jsonDict);
-PropertyObjectPtr convertJsonObjectToOpendaqObject(const Json::Value& jsonObject, const std::string& pathPrefix);
+class FunctionBlockConverter : public ComponentConverter 
+{
+public:
+    FunctionBlockConverter(const InstancePtr& opendaqInstance) : ComponentConverter(opendaqInstance) {}
+    void composeJetState(const ComponentPtr& component) override;
+
+protected:
+    void appendFunctionBlockInfo(const FunctionBlockPtr& functionBlock, Json::Value& parentJsonValue);
+};
+
+END_NAMESPACE_JET_MODULE
