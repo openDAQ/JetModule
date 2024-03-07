@@ -3,6 +3,12 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
+/**
+ * @brief Composes Json representation of an openDAQ signal and publishes it as Jet state.
+ * This function is overriden by every Converter class in order to convert different openDAQ objects according to the data they host.
+ * 
+ * @param component OpenDAQ signal which has to be converted into its Json representation.
+ */
 void SignalConverter::composeJetState(const ComponentPtr& component)
 {
     Json::Value jetState;
@@ -13,6 +19,7 @@ void SignalConverter::composeJetState(const ComponentPtr& component)
     // Adding additional information to a component's Jet state
     appendObjectType(component, jetState);
     appendActiveStatus(component, jetState);
+    appendVisibleStatus(component, jetState);
     appendTags(component, jetState);    
 
     appendSignalInfo(component.asPtr<ISignal>(), jetState);
@@ -26,6 +33,12 @@ void SignalConverter::composeJetState(const ComponentPtr& component)
     jetPeerWrapper.publishJetState(path, jetState, jetStateCallback);
 }
 
+/**
+ * @brief Appends a signal vlaue information according to its DataDescriptor to a Json value, which will be published as a Jet state.
+ * 
+ * @param signal OpenDAQ signal from which its DataDescriptor is retrieved.
+ * @param parentJsonValue Json object to which signal metadata is appended.
+ */
 void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& parentJsonValue)
 {
     std::string signalName = signal.getName();

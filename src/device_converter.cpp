@@ -2,6 +2,12 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
+/**
+ * @brief Composes Json representation of an openDAQ device and publishes it as Jet state.
+ * This function is overriden by every Converter class in order to convert different openDAQ objects according to the data they host.
+ * 
+ * @param component OpenDAQ device which has to be converted into its Json representation.
+ */
 void DeviceConverter::composeJetState(const ComponentPtr& component)
 {
     Json::Value jetState;
@@ -12,6 +18,7 @@ void DeviceConverter::composeJetState(const ComponentPtr& component)
     // Adding additional information to a device's Jet state
     appendObjectType(component, jetState);
     appendActiveStatus(component, jetState);
+    appendVisibleStatus(component, jetState);
     appendTags(component, jetState);    
 
     appendDeviceMetadata(component.asPtr<IDevice>(), jetState);
@@ -38,7 +45,7 @@ void DeviceConverter::appendDeviceMetadata(const DevicePtr& device, Json::Value&
     auto deviceInfoProperties = deviceInfo.getAllProperties();
     for(auto property : deviceInfoProperties) 
     {
-        determinePropertyType<DeviceInfoPtr>(deviceInfo, property, parentJsonValue);
+        propertyManager.determinePropertyType<DeviceInfoPtr>(deviceInfo, property, parentJsonValue);
     }
 }
 

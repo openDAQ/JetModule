@@ -32,6 +32,12 @@ using JetMethodCallback = std::function<Json::Value(const Json::Value&)>;
 
 //! This class has to be instantiated only once because PeerAsync occupies unix socket
 //! Singleton pattern is utilized
+/**
+ * @brief Wrapper class which make communication with Jet easy. It has function for publishing, reading and modifying Jet states.
+ * Singleton design pattern is utilized in this class because it has to be instantiated only once. Otherwise there would
+ * be conflicts between Jet peers trying to occupy unix socket.
+ * 
+ */
 class JetPeerWrapper
 {
 public:
@@ -44,7 +50,9 @@ public:
     void publishJetState(const std::string& path, const Json::Value& jetState, JetStateCallback callback);
     void publishJetMethod(const std::string& path, JetMethodCallback callback);
     Json::Value readJetState(const std::string& path);
+    Json::Value readAllJetStates();
     void updateJetState(const std::string& path, const Json::Value newValue);
+    void modifyJetState(const char* valueType, const std::string& path, const char* newValue);
 
     std::string removeRootDeviceId(const std::string& path);
 

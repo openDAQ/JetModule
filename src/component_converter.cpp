@@ -10,6 +10,12 @@ ComponentConverter::ComponentConverter(const InstancePtr& opendaqInstance) : jet
     logger = LoggerComponent("ObjectConverterLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
 }
 
+/**
+ * @brief Composes Json representation of an openDAQ component and publishes it as Jet state.
+ * This function is overriden by every Converter class in order to convert different openDAQ objects according to the data they host.
+ * 
+ * @param component OpenDAQ component which has to be converted into its Json representation.
+ */
 void ComponentConverter::composeJetState(const ComponentPtr& component)
 {
     Json::Value jetState;
@@ -20,6 +26,7 @@ void ComponentConverter::composeJetState(const ComponentPtr& component)
     // Adding additional information to a component's Jet state
     appendObjectType(component, jetState);
     appendActiveStatus(component, jetState);
+    appendVisibleStatus(component, jetState);
     appendTags(component, jetState);
 
     // Creating callbacks
@@ -32,7 +39,7 @@ void ComponentConverter::composeJetState(const ComponentPtr& component)
 }
 
 /**
- * @brief Defines a callback function for a component which will be called when some event occurs in a structure
+ * @brief Defines a callback function for a component which will be called when some change occurs in a structure
  * of an openDAQ component.
  * 
  * @param component Pointer to the component for which a callback function is defined.
@@ -41,26 +48,28 @@ void ComponentConverter::createOpendaqCallback(const ComponentPtr& component)
 {
     component.getOnComponentCoreEvent() += [this](const ComponentPtr& comp, const CoreEventArgsPtr& args)
     {
-        auto parameters = args.getParameters();
-        auto keyList = parameters.getKeyList();
-        auto valueList = parameters.getValueList();
-        // std::cout << "Size = " << keyList.getCount() << std::endl;
-        // for(int i = 0; i < keyList.getCount(); i++) {
-        //     std::cout << "Key: " << keyList[i] << std::endl;
-        //     std::cout << "Value: " << valueList[i] << std::endl;
-        // }
-        // std::cout << std::endl;
-
         DictPtr<IString, IBaseObject> eventParameters = args.getParameters();
-        if(eventParameters.hasKey("Name")) { // Properties
+        if(eventParameters.hasKey("Name")) { // Property changed
             opendaqEventHandler.updateProperty(comp, eventParameters);
         }
-        else if(eventParameters.hasKey("Active")) { // Active status
+        else if(eventParameters.hasKey("Active")) { // Active status changed
             opendaqEventHandler.updateActiveStatus(comp, eventParameters);
+        }
+        else if(eventParameters.hasKey("Property")) { // Property added
+            opendaqEventHandler.addProperty(comp, eventParameters);
+        }
+        else {
+            std::string message = "Unknown change occured to component \"" + comp.getName() + "\"\n";
+            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
         }
     };
 }
 
+/**
+ * @brief Defines a callback function for a Jet state which will be called when some change occurs in that Jet state.
+ * 
+ * @return JetStateCallback callback function which will be called during the change from Jet. It has to be passed to Jet state publisher.
+ */
 JetStateCallback ComponentConverter::createJetCallback()
 {
     JetStateCallback callback = [this](const Json::Value& value, std::string path) -> Json::Value
@@ -103,7 +112,7 @@ JetStateCallback ComponentConverter::createJetCallback()
 
 /**
  * @brief Parses a component to get its properties which are converted into Json representation in order to be published
- * in the component's Jet state
+ * in the component's Jet state.
  * 
  * @param component Component which is parsed to retrieve its properties.
  * @param parentJsonValue Json object which is filled with representations of openDAQ properties.
@@ -114,68 +123,8 @@ void ComponentConverter::appendProperties(const ComponentPtr& component, Json::V
 
     auto properties = component.getAllProperties();
     for(auto property : properties) {
-        determinePropertyType<ComponentPtr>(component, property, parentJsonValue);
+        propertyManager.determinePropertyType<ComponentPtr>(component, property, parentJsonValue);
     }
-}
-
-// TODO! arguments are not received from jet, need to find out why and fix
-/**
- * @brief Creates a callable Jet object which calls an openDAQ function or procedure.
- * 
- * @param propertyPublisher Component which has a callable property.
- * @param property Callable property.
- */
-void ComponentConverter::createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property)
-{
-    std::string path = propertyPublisher.getGlobalId() + "/" + property.getName();
-
-    std::string methodName = property.getName();
-    CoreType coreType = property.getValueType();
-
-    auto cb = [propertyPublisher, methodName, coreType, this](const Json::Value& args) -> Json::Value
-    {
-        try
-        {
-            int numberOfArgs = args.size();
-            const BaseObjectPtr method = propertyPublisher.getPropertyValue(methodName);
-            if(numberOfArgs > 0)
-            {
-                BaseObjectPtr daqArg;
-                if(numberOfArgs > 1)
-                {
-                    daqArg = List<IBaseObject>();
-                    for (uint16_t i = 0; i < numberOfArgs; ++i)
-                    {   
-                        propertyConverter.convertJsonToDaqArguments(daqArg, args, i);
-                    }
-                }
-                else
-                {
-                    propertyConverter.convertJsonToDaqArguments(daqArg, args, 0);
-                }
-                if (coreType == ctFunc)
-                    method.asPtr<IFunction>()(daqArg);
-                else
-                    method.asPtr<IProcedure>()(daqArg);
-
-                return "Method called successfully";
-            }
-            if (coreType == ctFunc)
-                method.asPtr<IFunction>()();
-            else
-                method.asPtr<IProcedure>()();
-            
-            return "Method called successfully";
-
-        }
-        catch(...)
-        {
-            return "Method called with failure";
-        }
-        
-    };
-
-    jetPeerWrapper.publishJetMethod(path, cb);
 }
 
 /**

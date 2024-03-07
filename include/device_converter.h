@@ -19,6 +19,10 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
+/**
+ * @brief Converter of openDAQ devices into their Json representations.
+ * 
+ */
 class DeviceConverter : public ComponentConverter
 {
 public:

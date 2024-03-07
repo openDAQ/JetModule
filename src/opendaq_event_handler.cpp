@@ -149,4 +149,50 @@ void OpendaqEventHandler::updateActiveStatus(const ComponentPtr& component, cons
     jetPeerWrapper.updateJetState(path, jetState);
 }
 
+/**
+ * @brief Addresses a property addition to an openDAQ component. It adds the property to Jet state representing the component.
+ * 
+ * @param component Component to which a property has been added.
+ * @param eventParameters Dictionary filled with data describing the change.
+ */
+void OpendaqEventHandler::addProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
+{
+    std::string path = component.getGlobalId();
+    Json::Value jetState = jetPeerWrapper.readJetState(path);
+
+    // Property name in eventParameters is in "Property {<property_name>}" format, so we have to extract the string between curly braces
+    std::string propertyName = extractPropertyName(eventParameters.get("Property"));
+    if(propertyName == "") {
+        std::string message = "Property has been to component \"" + component.getName() + "\" but could not extract property's name!\n";
+        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+    }
+
+    PropertyPtr property = component.getProperty(propertyName);
+    propertyManager.determinePropertyType<ComponentPtr>(component, property, jetState);
+    jetPeerWrapper.updateJetState(path, jetState);
+}
+
+/**
+ * @brief OpenDAQ event, which describes property addition to an openDAQ component, has property's name in the format of 
+ * "Property {<property_name>}". So, the string between curly braces has to be extracted. This function does that.
+ * 
+ * @param str Original string from openDAQ event.
+ * @return std::string corresponding to property name.
+ */
+std::string OpendaqEventHandler::extractPropertyName(const std::string& str)
+{
+    
+    size_t startPos = str.find("{");
+    size_t endPos = str.find("}");
+
+    if (startPos != std::string::npos && endPos != std::string::npos && endPos > startPos) {
+        // Add 1 to startPos to start from the character after '{'
+        // Calculate the length of the content by subtracting the positions, minus one to exclude '}'
+        return str.substr(startPos + 1, endPos - startPos - 1);
+    }
+    
+    // Return an empty string to indicate that the format was not as expected
+    return "";
+}
+
 END_NAMESPACE_JET_MODULE

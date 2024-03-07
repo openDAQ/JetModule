@@ -9,6 +9,7 @@ set(SRC_Include
     jet_peer_wrapper.h
     jet_server.h
     jet_module_exceptions.h
+    property_manager.h
     property_converter.h
     component_converter.h
     device_converter.h
@@ -28,6 +29,7 @@ set(SRC_Srcs
     jet_peer_wrapper.cpp
     jet_server.cpp
     jet_module_exceptions.cpp
+    property_manager.cpp
     property_converter.cpp
     component_converter.cpp
     device_converter.cpp
