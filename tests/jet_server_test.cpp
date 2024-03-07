@@ -1,20 +1,13 @@
 #include <gtest/gtest.h>
 #include "jet_server_test.h"
-#include "opendaq_to_json_converters.h"
-#include "json_to_opendaq_converters.h"
 
 // Checks whether all of the required Jet states are present
 TEST_F(JetServerTest, CheckStatePresence)
 {
-    // Publish device structure as Jet states
-    jetServer->publishJetStates();
-    
-    // Read Jet states
-    Json::Value jetStates = readJetStates();
-    // Get Jet state paths
-    std::vector<std::string> jetStatePaths = getJetStatePaths(jetStates);
     // Get component IDs of openDAQ objects
-    std::vector<std::string> globalIds = getComponentIDs(rootDevice);
+    std::vector<std::string> globalIds = getComponentIDs();
+    // Get Jet state paths
+    std::vector<std::string> jetStatePaths = getJetStatePaths();
 
     // Check whether there same amount of states in Jet as there are high level objects in openDAQ
     ASSERT_EQ(jetStatePaths.size(), globalIds.size());
@@ -36,8 +29,6 @@ TEST_F(JetServerTest, TestBoolProperty)
     // Add bool property to the device
     std::string propertyName = "TestBool";
     rootDevice.addProperty(BoolProperty(propertyName, true));
-
-    jetServer->publishJetStates();
 
     // Check whether values are equal initially
     valueInJet = getPropertyValueInJet(propertyName).asBool();
@@ -68,8 +59,6 @@ TEST_F(JetServerTest, TestIntProperty)
     std::string propertyName = "TestInt";
     rootDevice.addProperty(IntProperty(propertyName, 69420));
 
-    jetServer->publishJetStates();
-
     // Check whether values are equal initially
     valueInJet = getPropertyValueInJet(propertyName).asInt64();
     valueInOpendaq = rootDevice.getPropertyValue(propertyName);
@@ -98,8 +87,6 @@ TEST_F(JetServerTest, TestFloatProperty)
     // Add float property to the device
     std::string propertyName = "TestFloat";
     rootDevice.addProperty(FloatProperty(propertyName, 69420.69));
-
-    jetServer->publishJetStates();
 
     // Check whether values are equal initially
     valueInJet = getPropertyValueInJet(propertyName).asDouble();
@@ -130,8 +117,6 @@ TEST_F(JetServerTest, TestStringProperty)
     std::string propertyName = "TestString";
     rootDevice.addProperty(StringProperty(propertyName, "Richard Feynman"));
 
-    jetServer->publishJetStates();
-
     // Check whether values are equal initially
     valueInJet = getPropertyValueInJet(propertyName).asString();
     std::string valueInOpendaq1 = rootDevice.getPropertyValue(propertyName);
@@ -161,23 +146,21 @@ TEST_F(JetServerTest, TestListProperty)
     std::string propertyName = "TestList";
     rootDevice.addProperty(ListProperty(propertyName, List<std::string>("Georgia", "is", "beautiful")));
 
-    jetServer->publishJetStates();
-
     // Check whether values are equal initially
-    valueInJet = convertJsonArrayToOpendaqList(getPropertyValueInJet(propertyName));
+    valueInJet = propertyConverter.convertJsonArrayToOpendaqList(getPropertyValueInJet(propertyName));
     valueInOpendaq = rootDevice.getPropertyValue(propertyName);
     ASSERT_EQ(valueInJet, valueInOpendaq);
  
     // Check whether property value updated from openDAQ updates value in Jet
     rootDevice.setPropertyValue(propertyName, List<std::string>("Optimus", "Prime"));
-    valueInJet = convertJsonArrayToOpendaqList(getPropertyValueInJet(propertyName));
+    valueInJet = propertyConverter.convertJsonArrayToOpendaqList(getPropertyValueInJet(propertyName));
     valueInOpendaq = rootDevice.getPropertyValue(propertyName);
     EXPECT_EQ(valueInJet, valueInOpendaq);
 
     // Check whether property value updated from Jet updates value in openDAQ
     std::vector<std::string> newValue = {"The", "first", "principle", "is", "that", "you", "must", "not", "fool", "yourself", "and", "you", "are", "the", "easiest", "person", "to", "fool."};
     setPropertyListInJet(propertyName, newValue);
-    valueInJet = convertJsonArrayToOpendaqList(getPropertyValueInJetTimeout(propertyName, convertVectorToJson(newValue)));
+    valueInJet = propertyConverter.convertJsonArrayToOpendaqList(getPropertyValueInJetTimeout(propertyName, convertVectorToJson(newValue)));
     valueInOpendaq = rootDevice.getPropertyValue(propertyName);
     EXPECT_EQ(valueInJet, valueInOpendaq);
 }
@@ -196,10 +179,8 @@ TEST_F(JetServerTest, TestDictProperty)
     dict.set("C", 3);
     rootDevice.addProperty(DictProperty(propertyName, dict));
 
-    jetServer->publishJetStates();
-
     // Check whether values are equal initially
-    valueInJet = convertJsonDictToOpendaqDict(getPropertyValueInJet(propertyName));
+    valueInJet = propertyConverter.convertJsonDictToOpendaqDict(getPropertyValueInJet(propertyName));
     valueInOpendaq = rootDevice.getPropertyValue(propertyName);
     ASSERT_EQ(valueInJet, valueInOpendaq);
  
@@ -209,7 +190,7 @@ TEST_F(JetServerTest, TestDictProperty)
     dict.set("FirstElement", 321321);
     dict.set("SecondElement", 666777);
     rootDevice.setPropertyValue(propertyName, dict);
-    valueInJet = convertJsonDictToOpendaqDict(getPropertyValueInJet(propertyName));
+    valueInJet = propertyConverter.convertJsonDictToOpendaqDict(getPropertyValueInJet(propertyName));
     valueInOpendaq = rootDevice.getPropertyValue(propertyName);
     EXPECT_EQ(valueInJet, valueInOpendaq);
 
@@ -219,7 +200,7 @@ TEST_F(JetServerTest, TestDictProperty)
     dictJson["Element2"] = 3;
     dictJson["Element3"] = 5;
     setPropertyValueInJet(propertyName, dictJson);
-    valueInJet = convertJsonDictToOpendaqDict(getPropertyValueInJetTimeout(propertyName, dictJson));
+    valueInJet = propertyConverter.convertJsonDictToOpendaqDict(getPropertyValueInJetTimeout(propertyName, dictJson));
     valueInOpendaq = rootDevice.getPropertyValue(propertyName);
     EXPECT_EQ(valueInJet, valueInOpendaq);
 }

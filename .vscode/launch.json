@@ -54,10 +54,10 @@
             "miDebuggerPath": "/usr/bin/gdb"
         },
         {
-            "name": "Debug ConvertersTest",
+            "name": "Debug PropertyConverterTest",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/ConvertersTest",
+            "program": "${workspaceFolder}/build/tests/PropertyConverterTest",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
