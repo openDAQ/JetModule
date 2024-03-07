@@ -9,7 +9,7 @@ Jet module is an integration of Jet protocol with openDAQ SDK. It publishes devi
 - After a device has been instantiated, create `JetServer` object:
   
   ```c++
-  daq::modules::jet_module::JetServer jetServer = JetServer(device);
+  daq::modules::jet_module::JetServer jetServer = JetServer(opendaqInstance);
   ```
 
 - Call `JetServer::publishJetStates()` to publish device structure as Jet states:
@@ -22,7 +22,9 @@ Jet states are updated automatically if some property value is changed.
 
 ### CMake options
 
-`COMPILE_REFERENCE_APPLICATION` - Compiles reference application when ON.
+`COMPILE_REFERENCE_APPLICATION` - Compiles reference application when ON.\
+`JET_MODULE_ENABLE_TESTS` - Compiles tests if enabled.\
+`IGNORE_INSTALLED_SDK` - Ignores loccally installed SDK and fetches it if enabled.
 
 ## Build
 

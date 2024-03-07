@@ -16,11 +16,14 @@
 #pragma once
 #include <future>
 #include <opendaq/opendaq.h>
-#include <jet_server.h>
 #include <jet/peerasync.hpp>
 #include <jet/peer.hpp>
 #include <json/value.h>
 #include <json/writer.h>
+#include "jet_server.h"
+#include "jet_peer_wrapper.h"
+#include "property_converter.h"
+#include "jet_event_handler.h"
 
 
 #define JET_GET_VALUE_TIMEOUT (1) // 1 second
@@ -28,22 +31,6 @@
 using namespace daq;
 using namespace daq::modules::jet_module;
 using namespace hbk::jet;
-
-
-/******************************************************************************************
- *                                Function prototypes
-*******************************************************************************************/
-
-Json::Value readJetStates();
-static void readJetStatesCb(std::promise<Json::Value>& promise, const Json::Value& value);
-std::vector<std::string> getJetStatePaths(const Json::Value& jetStates);
-std::vector<std::string> getComponentIDs(const FolderPtr& parentFolder);
-void parseFolder(const FolderPtr& parentFolder, std::vector<std::string>& globalIdVector);
-void modifyJetState(const char* valueType, const std::string& path, const char* newValue);
-
-
-// Used to read Jet states from PeerAsync
-static hbk::sys::EventLoop eventloop;
 
 /**
  * @brief Creates openDAQ instance using device from openDAQ's 'ref_device_module'.
@@ -55,13 +42,18 @@ protected:
     daq::InstancePtr instance;
     daq::DevicePtr rootDevice;
     JetServer* jetServer;
+    JetPeerWrapper& jetPeerWrapper = JetPeerWrapper::getInstance();
+    PropertyConverter propertyConverter;
+    JetEventHandler jetEventHandler;
     std::string rootDevicePath;
 
     virtual void SetUp() {
         instance = daq::Instance(MODULE_PATH);
         instance.setRootDevice("daqref://device0");
         rootDevice = instance.getRootDevice();
-        jetServer = new JetServer(rootDevice);
+        jetServer = new JetServer(instance);
+        jetServer->publishJetStates();
+
         rootDevicePath = toStdString(rootDevice.getGlobalId());
     }
 
@@ -71,10 +63,12 @@ protected:
 
     Json::Value getPropertyValueInJet(const std::string& propertyName);
     Json::Value getPropertyValueInJetTimeout(const std::string& propertyName, const Json::Value& expectedValue);
-    Json::Value getPropertyListInJet(const std::string& propertyName);
-    Json::Value getPropertyListInJetTimeout(const std::string& propertyName, const std::vector<std::string>& expectedValueVector);
     void setPropertyValueInJet(const std::string& propertyName, const Json::Value& newValue);
     void setPropertyListInJet(const std::string& propertyName, const std::vector<std::string>& newValue);
+
+    std::vector<std::string> getComponentIDs();
+    std::vector<std::string> getJetStatePaths();
+    void parseOpendaqInstance(const FolderPtr& parentFolder, std::vector<std::string>& globalIdVector);
 };
 
 /**
@@ -85,7 +79,7 @@ protected:
  */
 Json::Value JetServerTest::getPropertyValueInJet(const std::string& propertyName)
 {
-    Json::Value jetState = jetServer->readJetState(rootDevice.getGlobalId());
+    Json::Value jetState = jetPeerWrapper.readJetState(rootDevice.getGlobalId());
     Json::Value valueInJet = jetState.get(propertyName, Json::Value()); // default value is empty Json
     return valueInJet;
 }
@@ -116,56 +110,6 @@ Json::Value JetServerTest::getPropertyValueInJetTimeout(const std::string& prope
 }
 
 /**
- * @brief Gets a list property value from a Jet state.
- * 
- * @param propertyName Name of the property.
- * @return Json::Value object which contains the property value in the Jet state.
- */
-Json::Value JetServerTest::getPropertyListInJet(const std::string& propertyName)
-{
-    Json::Value jetStates = readJetStates();
-    for (const Json::Value& item : jetStates) {
-        if (item[hbk::jet::PATH] == rootDevicePath) {
-            Json::Value valueInJet = item[hbk::jet::VALUE];
-            return valueInJet;
-        }
-    }
-    return Json::Value(); // Return empty json if not found
-}
-
-/**
- * @brief Gets a list property value from a Jet state. Expected value is passed to repeteadly read a Jet state for a given time. This is needed
- * in cases where value change in Jet needs some time to be propagated.
- * 
- * @param propertyName Name of the property.
- * @param expectedValueVector Value expected to be read from a Jet state.
- * @return Json::Value object which contains the property value in the Jet state.
- */
-Json::Value JetServerTest::getPropertyListInJetTimeout(const std::string& propertyName, const std::vector<std::string>& expectedValueVector)
-{
-    Json::Value expectedValueJson;
-    Json::Value array(Json::arrayValue);
-    for (auto val : expectedValueVector) {
-        array.append(val);
-    }
-    expectedValueJson[propertyName] = array;
-
-    Json::Value valueInJet;
-
-    auto startTime = std::chrono::high_resolution_clock::now();
-    auto timeout = std::chrono::seconds(JET_GET_VALUE_TIMEOUT);
-    do {
-        valueInJet = getPropertyListInJet(propertyName);
-        if (valueInJet == expectedValueJson) {
-            break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // Wait a bit before retrying
-    } while (std::chrono::high_resolution_clock::now() - startTime < timeout);
-
-    return valueInJet;
-}
-
-/**
  * @brief Sets a property value in a Jet state.
  * 
  * @param propertyName Name of the property.
@@ -173,11 +117,7 @@ Json::Value JetServerTest::getPropertyListInJetTimeout(const std::string& proper
  */
 void JetServerTest::setPropertyValueInJet(const std::string& propertyName, const Json::Value& newValue)
 {
-    Json::Value root;
-    root[propertyName] = newValue;
-    Json::StreamWriterBuilder builder;
-    const std::string jsonValue = Json::writeString(builder, root);
-    modifyJetState("json", rootDevicePath, jsonValue.c_str());
+    jetEventHandler.updateProperty(rootDevice, propertyName, newValue);
 }
 
 /**
@@ -188,59 +128,11 @@ void JetServerTest::setPropertyValueInJet(const std::string& propertyName, const
  */
 void JetServerTest::setPropertyListInJet(const std::string& propertyName, const std::vector<std::string>& newValue)
 {
-    Json::Value root;
     Json::Value array(Json::arrayValue);
     for (auto val : newValue) {
         array.append(val);
     }
-    root[propertyName] = array;
-    Json::StreamWriterBuilder builder;
-    const std::string jsonValue = Json::writeString(builder, root);
-    modifyJetState("json", rootDevicePath, jsonValue.c_str());
-}
-
-/**
- * @brief Reads all of the published Jet states.
- * 
- * @return Object containg Jet states.
- */
-Json::Value readJetStates()
-{
-    std::string address("127.0.0.1");
-    unsigned int port = hbk::jet::JETD_TCP_PORT;
-    hbk::jet::matcher_t match;
-    hbk::jet::PeerAsync peer(eventloop, address, port);
-
-    // Create a promise and future
-    std::promise<Json::Value> promise;
-    std::future<Json::Value> future = promise.get_future();
-
-    // Calls the callback function with the promise
-    peer.getAsync(match, [&promise](const Json::Value& value) {
-        readJetStatesCb(promise, value);
-    });
-
-    eventloop.execute();
-
-    // Wait for the future to get the value
-    Json::Value result = future.get();
-    return result;
-}
-
-/**
- * @brief Callback function for readJetStates function. It gets Jet states from PeerAsync.
- * 
- * @param promise Value which will be set once Jet states are read from PeerAsync.
- * @param value Json::Value which contains Jet states.
- */
-static void readJetStatesCb(std::promise<Json::Value>& promise, const Json::Value& value)
-{
-    // value contains the data as an array of objects
-    Json::Value publishedJsonValue = value[hbk::jsonrpc::RESULT];
-    promise.set_value(publishedJsonValue);
-
-    // Stop the event loop
-    eventloop.stop();
+    jetEventHandler.updateProperty(rootDevice, propertyName, array);
 }
 
 /**
@@ -250,8 +142,9 @@ static void readJetStatesCb(std::promise<Json::Value>& promise, const Json::Valu
  * @param jetStates Json::Value objects which contain whole Jet states.
  * @return Vector containing paths of the Jet states.
  */
-std::vector<std::string> getJetStatePaths(const Json::Value& jetStates)
+std::vector<std::string> JetServerTest::getJetStatePaths()
 {
+    Json::Value jetStates = jetPeerWrapper.readAllJetStates();
     // Vector which will be filled with paths of Jet states
     std::vector<std::string> jetStatePaths;
     for (const Json::Value &item : jetStates) {
@@ -267,15 +160,15 @@ std::vector<std::string> getJetStatePaths(const Json::Value& jetStates)
  * @param parentFolder Root device, which is parsed to retrieve all objects under it.
  * @return Vector containing Global IDs of openDAQ components.
  */
-std::vector<std::string> getComponentIDs(const FolderPtr& parentFolder)
+std::vector<std::string> JetServerTest::getComponentIDs()
 {
     // Vector which is filled with global IDs of components
     std::vector<std::string> globalIdVector;
 
     // We have to add global ID of the root device manually as it's not added when it is parsed
-    globalIdVector.push_back(parentFolder.asPtrOrNull<IDevice>().getGlobalId());
+    globalIdVector.push_back(rootDevice.getGlobalId());
     // Get IDs of the components under the device
-    parseFolder(parentFolder, globalIdVector);
+    parseOpendaqInstance(instance, globalIdVector);
 
     return globalIdVector;
 }
@@ -286,87 +179,47 @@ std::vector<std::string> getComponentIDs(const FolderPtr& parentFolder)
  * @param parentFolder Root device, which is parsed to retrieve all objects under it.
  * @param globalIdVector Vector of strings which is filled with Global IDs.
  */
-void parseFolder(const FolderPtr& parentFolder, std::vector<std::string>& globalIdVector)
+void JetServerTest::parseOpendaqInstance(const FolderPtr& parentFolder, std::vector<std::string>& globalIdVector)
 {
-    auto items = parentFolder.getItems();
+    auto items = parentFolder.getItems(search::Any());
     for(const auto& item : items)
     {
         auto folder = item.asPtrOrNull<IFolder>();
-        auto channel = item.asPtrOrNull<IChannel>();
         auto component = item.asPtrOrNull<IComponent>();
+        auto device = item.asPtrOrNull<IDevice>();
+        auto functionBlock = item.asPtrOrNull<IFunctionBlock>();
+        auto channel = item.asPtrOrNull<IChannel>();
+        auto signal = item.asPtrOrNull<ISignal>();
+        auto inputPort = item.asPtrOrNull<IInputPort>();
 
-       if (channel.assigned())
-        {
-            std::string globalId = channel.getGlobalId();
-            globalIdVector.push_back(globalId);
+        if(device.assigned()) {
+            globalIdVector.push_back(device.getGlobalId());
         }
-        else if (folder.assigned()) // It is important to test for folder last as a channel also is a folder!
-        {
-            parseFolder(folder, globalIdVector); // Folders are recursively parsed until non-folder items are identified in them
+        else if(channel.assigned()) {
+            globalIdVector.push_back(channel.getGlobalId());
         }
-        else if (component.assigned())  // It is important to test for component after folder!
-        {
-            std::string globalId = component.getGlobalId();
-            globalIdVector.push_back(globalId);
+        else if(functionBlock.assigned()) {
+            globalIdVector.push_back(functionBlock.getGlobalId());
         }
-    }
-}
+        else if(signal.assigned()) {
+            globalIdVector.push_back(signal.getGlobalId());
+        }
+        else if(inputPort.assigned()) {
+            globalIdVector.push_back(inputPort.getGlobalId());
+        }
+        else if(folder.assigned()) { // It is important to test for folder last as everything besides component is a folder as well
+            // We do nothing here because we want to identify pure components (not its descendants)
+            // Recursion is done in separate if statement
+        }
+        else if(component.assigned()) { // It is important to test for component after folder!
+            globalIdVector.push_back(component.getGlobalId());
+        }
+        else {
+            // throwJetModuleException(JM_UNSUPPORTED_ITEM);
+        }
 
-/**
- * @brief Modifies Jet state.
- * 
- * @param valueType Type of the value that has to be modified. As all of the Jet states besides the methods are published with Json types,
- * use "json" as an argument.
- * @param path Path of the Jet state that is needed to be modified.
- * @param newValue New value of the Jet state.
- */
-void modifyJetState(const char* valueType, const std::string& path, const char* newValue)
-{
-    unsigned int port = hbk::jet::JETD_TCP_PORT;
-    std::string address("127.0.0.1");
-    hbk::jet::Peer peer(address, port);
-    // hbk::jet::PeerAsync peer(eventloop, address, port);
-    if(strcmp(valueType, "bool") == 0) 
-    {
-        if(strcmp(newValue, "false") == 0)
-        {
-            peer.setStateValue(path, false, 2.71828182846);
-        } 
-        else if (strcmp(newValue, "true") == 0) 
-        {
-            peer.setStateValue(path, true, 2.71828182846);
-        } 
-        else 
-        {
-            std::cerr << "invalid value for boolean expecting 'true'', or 'false'" << std::endl;
-        }
-    } 
-    else if(strcmp(valueType,"int")==0) 
-    {
-        int value = atoi(newValue);
-        peer.setStateValue(path, value, 2.71828182846);
-    } 
-    else if(strcmp(valueType, "double")==0) 
-    {
-        double value = strtod(newValue, nullptr);
-        peer.setStateValue(path, value, 2.71828182846);
-    } 
-    else if(strcmp(valueType,"string")==0) 
-    {
-        peer.setStateValue(path, newValue, 2.71828182846);
-    } 
-    else if(strcmp(valueType,"json")==0) 
-    {
-        Json::Value params;
-
-        Json::CharReaderBuilder rBuilder;
-        if(rBuilder.newCharReader()->parse(newValue, newValue+strlen(newValue), &params, nullptr)) 
-        {
-            peer.setStateValue(path, params, 2.71828182846);
-        } 
-        else 
-        {
-            std::cerr << "error while parsing json!" << std::endl;
+        if(folder.assigned()) {
+            parseOpendaqInstance(folder, globalIdVector);
         }
     }
 }

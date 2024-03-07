@@ -1,16 +1,15 @@
+#include "property_converter_test.h"
 #include <gtest/gtest.h>
-#include <opendaq_to_json_converters.h>
-#include "json_to_opendaq_converters.h"
 
 using namespace daq;
 
 
-TEST(OpendaqToJsonConverters, TestListConversion)
+TEST_F(PropertyConverterTest, OpendaqListToJsonArray)
 {
     ListPtr<IBaseObject> opendaqList = List<int64_t>(33, 69, 42, 420, 37);
     CoreType listItemType = CoreType::ctInt;
 
-    Json::Value jsonArray = convertOpendaqListToJsonArray(opendaqList, listItemType);
+    Json::Value jsonArray = propertyConverter.convertOpendaqListToJsonArray(opendaqList, listItemType);
 
     // Ensure that arrays contain same number of elements
     ASSERT_EQ(jsonArray.size(), opendaqList.getCount());
@@ -23,7 +22,7 @@ TEST(OpendaqToJsonConverters, TestListConversion)
     }
 }
 
-TEST(OpendaqToJsonConverters, TestDictConversion)
+TEST_F(PropertyConverterTest, OpendaqDictToJsonDict)
 {
     DictPtr<IString, IBaseObject> opendaqDict = Dict<std::string, int64_t>();
     opendaqDict.set("number2", 33);
@@ -33,7 +32,7 @@ TEST(OpendaqToJsonConverters, TestDictConversion)
     opendaqDict.set("number5", 37);
     CoreType dictItemType = CoreType::ctInt;
 
-    Json::Value jsonDict = convertOpendaqDictToJsonDict(opendaqDict, dictItemType);
+    Json::Value jsonDict = propertyConverter.convertOpendaqDictToJsonDict(opendaqDict, dictItemType);
 
     ListPtr<std::string> keyList = opendaqDict.getKeyList();
 
@@ -49,7 +48,7 @@ TEST(OpendaqToJsonConverters, TestDictConversion)
     }
 }
 
-TEST(JsonToOpendaqConverters, TestListConversion)
+TEST_F(PropertyConverterTest, JsonArrayToOpendaqList)
 {
     Json::Value jsonArray(Json::arrayValue);
     jsonArray.append("Khachapuri");
@@ -58,7 +57,7 @@ TEST(JsonToOpendaqConverters, TestListConversion)
     jsonArray.append("Kharcho");
     jsonArray.append("Churchkhela");
 
-    ListPtr<IBaseObject> opendaqList = convertJsonArrayToOpendaqList(jsonArray);
+    ListPtr<IBaseObject> opendaqList = propertyConverter.convertJsonArrayToOpendaqList(jsonArray);
 
     // Ensure that arrays contain same number of elements
     ASSERT_EQ(jsonArray.size(), opendaqList.getCount());
@@ -71,14 +70,14 @@ TEST(JsonToOpendaqConverters, TestListConversion)
     }
 }
 
-TEST(JsonToOpendaqConverters, TestDictConversion)
+TEST_F(PropertyConverterTest, JsonDictToOpendaqDict)
 {
     Json::Value jsonDict;
     jsonDict["animal1"] = "Tortoise";
     jsonDict["animal2"] = "Penguin";
     jsonDict["animal3"] = "Alligator";
 
-    DictPtr<IString, IBaseObject> opendaqDict = convertJsonDictToOpendaqDict(jsonDict);
+    DictPtr<IString, IBaseObject> opendaqDict = propertyConverter.convertJsonDictToOpendaqDict(jsonDict);
 
     ListPtr<std::string> keyList = opendaqDict.getKeyList();
 
@@ -95,7 +94,7 @@ TEST(JsonToOpendaqConverters, TestDictConversion)
 
 }
 
-TEST(JsonToOpendaqConverters, TestObjectConversion)
+TEST_F(PropertyConverterTest, JsonObjectToOpendaqObject)
 {
     Json::Value grandparent;
     Json::Value parent;
@@ -105,7 +104,7 @@ TEST(JsonToOpendaqConverters, TestObjectConversion)
     parent["Child"] = child;
     grandparent["Parent"] = parent;
 
-    PropertyObjectPtr propertyObject = convertJsonObjectToOpendaqObject(grandparent, "");
+    PropertyObjectPtr propertyObject = propertyConverter.convertJsonObjectToOpendaqObject(grandparent, "");
 
     // Creating the same openDAQ property object manually. It can't be used in GTest for a direct comparison
     // auto childOpendaq = PropertyObject();
