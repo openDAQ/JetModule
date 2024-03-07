@@ -1,5 +1,6 @@
 #include "jet_peer_wrapper.h"
 #include <opendaq/logger_component_factory.h>
+#include <jet/peer.hpp>
 
 BEGIN_NAMESPACE_JET_MODULE
 
@@ -25,21 +26,28 @@ JetPeerWrapper::~JetPeerWrapper()
 /**
  * @brief Publishes a Json value as a Jet state to the specified path.
  * 
- * @param path Path which the Jet state will have.
- * @param jetState Json representation of the Jet state.
+ * @param path 
+ * @param jetState Path which the Jet state will have.
+ * @param callback Callback function which will be called when the Jet state is modified.
  */
 void JetPeerWrapper::publishJetState(const std::string& path, const Json::Value& jetState, JetStateCallback callback)
 {
     jetPeer->addStateAsync(path, jetState, hbk::jet::responseCallback_t(), callback);
 }
 
+/**
+ * @brief Publishes a Jet method to the specified path.
+ * 
+ * @param path Path which the Jet method will have.
+ * @param callback Callback function which will be called when the Jet method is executed.
+ */
 void JetPeerWrapper::publishJetMethod(const std::string& path, JetMethodCallback callback)
 {
     jetPeer->addMethodAsync(path, hbk::jet::responseCallback_t(), callback);
 }
 
 /**
- * @brief Read a Jet state with specified path into a Json object.
+ * @brief Reads a Jet state with specified path into a Json object.
  * 
  * @param path Path of the Jet state which is read.
  * @return Json::Value object containing a Json representation of the Jet state.
@@ -71,11 +79,11 @@ Json::Value JetPeerWrapper::readJetState(const std::string& path)
 
     // Making sure that size of the array of Json objects is exactly 1
     if(jetState.size() == 0) {
-        std::string message = "Could not read Jet state with path: " + path + "!\n";
+        std::string message = "Could not read Jet state with path: " + path + "\n";
         logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
     }
     else if(jetState.size() != 1) {
-        std::string message = "There are multiple Jet states with path: " + path + "!\n";
+        std::string message = "There are multiple Jet states with path: " + path + "\n";
         logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
     }
 
@@ -85,11 +93,51 @@ Json::Value JetPeerWrapper::readJetState(const std::string& path)
     return jetState;
 }
 
+/**
+ * @brief Reads all Jet states into a Json object.
+ * 
+ * @return Json::Value object containing a Json representation of all the Jet states.
+ */
+Json::Value JetPeerWrapper::readAllJetStates()
+{
+    std::string address("127.0.0.1");
+    unsigned int port = hbk::jet::JETD_TCP_PORT;
+    hbk::jet::matcher_t match;
+    hbk::jet::PeerAsync peer(jetStateReadEventloop, address, port);
+
+    // Create a promise and future
+    std::promise<Json::Value> promise;
+    std::future<Json::Value> future = promise.get_future();
+
+    // Calls the callback function with the promise
+    peer.getAsync(match, [&promise](const Json::Value& value) {
+        readJetStateCb(promise, value);
+    });
+
+    jetStateReadEventloop.execute();
+
+    // Wait for the future to get the value
+    Json::Value result = future.get();
+    return result;
+}
+
+/**
+ * @brief Overwrites an existing Jet state with provided Json value.
+ * 
+ * @param path Path of the Jet state.
+ * @param newValue Json value which will be overwritten in the Jet state.
+ */
 void JetPeerWrapper::updateJetState(const std::string& path, const Json::Value newValue)
 {
     jetPeer->notifyState(path, newValue);
 }
 
+/**
+ * @brief Callback function used in Jet state reader functions. It sets assign Json value to std::promise when called.
+ * 
+ * @param promise Container which is assigned Json value containing Jet state(s).
+ * @param value Json value containing Jet state(s).
+ */
 void JetPeerWrapper::readJetStateCb(std::promise<Json::Value>& promise, const Json::Value& value)
 {
     // value contains the data as an array of objects
@@ -100,6 +148,75 @@ void JetPeerWrapper::readJetStateCb(std::promise<Json::Value>& promise, const Js
     jetStateReadEventloop.stop();
 }
 
+/**
+ * @brief Modifies Jet state.
+ * 
+ * @param valueType Type of the value that has to be modified. As all of the Jet states besides the methods are published with Json types,
+ * use "json" as an argument.
+ * @param path Path of the Jet state that is needed to be modified.
+ * @param newValue New value of the Jet state.
+ */
+void JetPeerWrapper::modifyJetState(const char* valueType, const std::string& path, const char* newValue)
+{
+    unsigned int port = hbk::jet::JETD_TCP_PORT;
+    std::string address("127.0.0.1");
+    hbk::jet::Peer peer(address, port);
+    // hbk::jet::PeerAsync peer(eventloop, address, port);
+    if(strcmp(valueType, "bool") == 0) 
+    {
+        if(strcmp(newValue, "false") == 0)
+        {
+            peer.setStateValue(path, false, 2.71828182846);
+        } 
+        else if (strcmp(newValue, "true") == 0) 
+        {
+            peer.setStateValue(path, true, 2.71828182846);
+        } 
+        else 
+        {
+            std::string message = "Could not modify Jet state with path: " + path + "\n" + 
+                "invalid value for boolean expecting 'true'', or 'false'\n";
+            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+        }
+    } 
+    else if(strcmp(valueType,"int")==0) 
+    {
+        int value = atoi(newValue);
+        peer.setStateValue(path, value, 2.71828182846);
+    } 
+    else if(strcmp(valueType, "double")==0) 
+    {
+        double value = strtod(newValue, nullptr);
+        peer.setStateValue(path, value, 2.71828182846);
+    } 
+    else if(strcmp(valueType,"string")==0) 
+    {
+        peer.setStateValue(path, newValue, 2.71828182846);
+    } 
+    else if(strcmp(valueType,"json")==0) 
+    {
+        Json::Value params;
+
+        Json::CharReaderBuilder rBuilder;
+        if(rBuilder.newCharReader()->parse(newValue, newValue+strlen(newValue), &params, nullptr)) 
+        {
+            peer.setStateValue(path, params, 2.71828182846);
+        } 
+        else 
+        {
+            std::string message = "Could not modify Jet state with path: " + path + "\n" + 
+                "error while parsing json!\n";
+            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+        }
+    }
+}
+
+/**
+ * @brief Helper function used in ComponentConverter callback to remove root device ID from other components' global IDs.
+ * 
+ * @param path Path of Jet state, same as global ID of a component.
+ * @return std::string which has root device ID removed.
+ */
 std::string JetPeerWrapper::removeRootDeviceId(const std::string& path)
 {
     std::string relativePath = path;

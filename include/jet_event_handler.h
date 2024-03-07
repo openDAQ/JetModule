@@ -21,6 +21,11 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
+/**
+ * @brief Handler of events occured in Jet states. Functions in this class update openDAQ components based on changes in their corresponding
+ * Jet states.
+ * 
+ */
 class JetEventHandler
 {
 public:

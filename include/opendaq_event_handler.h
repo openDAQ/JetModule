@@ -17,10 +17,15 @@
 #include "common.h"
 #include <opendaq/component_ptr.h>
 #include "jet_peer_wrapper.h"
+#include "property_manager.h"
 #include "property_converter.h"
 
 BEGIN_NAMESPACE_JET_MODULE
 
+/**
+ * @brief Handler of events occured in openDAQ device tree. Functions in this class update Jet states based on changes in their corresponding
+ * openDAQ components.
+ */
 class OpendaqEventHandler
 {
 public:
@@ -35,8 +40,14 @@ public:
     void updateDictProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
     void updateActiveStatus(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
 
+    void addProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
+
 private:
+    // Helper function
+    std::string extractPropertyName(const std::string& str);
+
     JetPeerWrapper& jetPeerWrapper;
+    PropertyManager propertyManager;
     PropertyConverter propertyConverter;
 
     LoggerComponentPtr logger;
