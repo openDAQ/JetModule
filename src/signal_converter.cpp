@@ -60,16 +60,10 @@ void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& par
         parentJsonValue["Value"]["DataDescriptor"]["Metadata"] = metadataCount;
     DataRulePtr rule = dataDescriptor.getRule();
         parentJsonValue["Value"]["DataDescriptor"]["Rule"] = std::string(rule);
-    SampleType sampleType;
-        // SampleType::Invalid results in runtime error when we try to get the sample type
-        // Due to this, getter function is inside of try-catch block
-        try {
-            sampleType = dataDescriptor.getSampleType();
-        } catch(...) {
-            sampleType = SampleType::Invalid;
-        }
+    SampleType sampleType = dataDescriptor.getSampleType();
         parentJsonValue["Value"]["DataDescriptor"]["SampleType"] = int(sampleType);
     UnitPtr unit = dataDescriptor.getUnit();
+    if(unit.assigned()) {
         int64_t unitId = unit.getId();
         std::string unitName = unit.getName();
         std::string unitQuantity = unit.getQuantity();
@@ -78,53 +72,31 @@ void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& par
         parentJsonValue["Value"]["DataDescriptor"]["Unit"]["Description"] = unitName;
         parentJsonValue["Value"]["DataDescriptor"]["Unit"]["Quantity"] = unitQuantity;
         parentJsonValue["Value"]["DataDescriptor"]["Unit"]["DisplayName"] = unitSymbol;
+    }
     ScalingPtr postScaling = dataDescriptor.getPostScaling();
-        // SampleType::Invalid and ScaledSampleType::Invalid result in runtime error when we try to get them
-        // Due to thism getter functions are inside of try-catch blocks
-        SampleType postScalingInputSampleType;
-        ScaledSampleType postScalingOutputSampleType;
-        try {
-            postScalingInputSampleType = postScaling.getInputSampleType();
-        } catch(...) {
-            postScalingInputSampleType = SampleType::Invalid;
-        }
-        try {
-            postScalingOutputSampleType = postScaling.getOutputSampleType();
-        } catch(...) {
-            postScalingOutputSampleType = ScaledSampleType::Invalid;
-        }
+    if(postScaling.assigned()) { 
+        SampleType postScalingInputSampleType = postScaling.getInputSampleType();;
+        ScaledSampleType postScalingOutputSampleType = postScaling.getOutputSampleType();
         parentJsonValue["Value"]["DataDescriptor"]["PostScaling"]["InputSampleType"] = int(postScalingInputSampleType);
         parentJsonValue["Value"]["DataDescriptor"]["PostScaling"]["OutputSampleType"] = int(postScalingOutputSampleType);
+    }
     StringPtr origin = dataDescriptor.getOrigin();
+    if(origin.assigned())
         parentJsonValue["Value"]["DataDescriptor"]["Origin"] = toStdString(origin);
     RatioPtr tickResolution = dataDescriptor.getTickResolution();
-        // If the tick resolution is not applicable to the signal, getter functions throw runtime errors
-        // Due to this, we have to use try-catch block and assign 0s as default values in that case
-        int64_t numerator;
-        int64_t denominator;
-        try {
-            numerator = tickResolution.getNumerator();
-            denominator = tickResolution.getDenominator();
-        } catch(...) {
-            numerator = 0;
-            denominator = 0;
-        }
+    if(tickResolution.assigned()) {
+        int64_t numerator = tickResolution.getNumerator();
+        int64_t denominator = tickResolution.getDenominator();
         parentJsonValue["Value"]["DataDescriptor"]["TickResolution"]["Numerator"] = numerator;
         parentJsonValue["Value"]["DataDescriptor"]["TickResolution"]["Denominator"] = denominator;
+    }
     RangePtr valueRange = dataDescriptor.getValueRange();
-        // If the value range is not applicable to the signal, getter functions throw runtime errors
-        // Due to this, we have to use try-catch block and assign 0s as default values in that case
-        double lowValue;
-        double highValue;
-        try {
-            lowValue = valueRange.getLowValue();
-            highValue = valueRange.getHighValue();
-        } catch(...) {
-            lowValue = 0;
-            highValue = 0;
-        }
+    if(valueRange.assigned()) {
+        double lowValue = valueRange.getLowValue();
+        double highValue = valueRange.getHighValue();
         parentJsonValue["Value"]["DataDescriptor"]["ValueRange"]["Low"] = lowValue;
         parentJsonValue["Value"]["DataDescriptor"]["ValueRange"]["High"] = highValue;
+    }
 }
 
 END_NAMESPACE_JET_MODULE
