@@ -307,6 +307,41 @@ Json::Value PropertyConverter::convertOpendaqDictToJsonDict(const DictPtr<IStrin
     return jsonDict;
 }
 
+Json::Value PropertyConverter::convertDataRuleToJsonObject(const DataRulePtr& dataRule)
+{
+    Json::Value dataRuleJson;
+
+    DataRuleType ruleType = dataRule.getType();
+    dataRuleJson["Type"] = int(ruleType);
+
+    DictPtr<IString, IBaseObject> ruleParametersDict = dataRule.getParameters();
+    auto keyList = ruleParametersDict.getKeyList();
+    auto valueList = ruleParametersDict.getValueList();
+    for(size_t i = 0; i < keyList.getCount(); i++) {
+        CoreType itemType = valueList[i].getCoreType();
+        switch(itemType) {
+            case CoreType::ctBool:
+                dataRuleJson[std::string(keyList[i])] = bool(valueList[i]);
+                break;
+            case CoreType::ctInt:
+                dataRuleJson[std::string(keyList[i])] = int64_t(valueList[i]);
+                break;
+            case CoreType::ctFloat:
+                dataRuleJson[std::string(keyList[i])] = double(valueList[i]);
+                break;
+            case CoreType::ctString:
+                dataRuleJson[std::string(keyList[i])] = std::string(valueList[i]);
+                break;
+            default:
+                std::string message = "Parameter with unexpected type detected in DataRule!\n";
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                break;
+        }
+    }
+
+    return dataRuleJson;
+}
+
 template <typename ListItemType>
 Json::Value PropertyConverter::fillJsonArray_BasicType(const ListPtr<IBaseObject>& opendaqList)
 {
