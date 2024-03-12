@@ -34,6 +34,8 @@ public:
     Json::Value convertOpendaqListToJsonArray(const ListPtr<IBaseObject>& opendaqList, const CoreType& listItemType);
     Json::Value convertOpendaqDictToJsonDict(const DictPtr<IString, IBaseObject>& opendaqDict, const CoreType& dictItemType);
 
+    Json::Value convertDataRuleToJsonObject(const DataRulePtr& dataRule);
+
     void convertJsonToDaqArguments(BaseObjectPtr& daqArg, const Json::Value& args, const uint16_t& index);
 
 private:

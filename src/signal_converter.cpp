@@ -59,7 +59,8 @@ void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& par
         size_t metadataCount = metadata.getCount();
         parentJsonValue["Value"]["DataDescriptor"]["Metadata"] = metadataCount;
     DataRulePtr rule = dataDescriptor.getRule();
-        parentJsonValue["Value"]["DataDescriptor"]["Rule"] = std::string(rule);
+    if(rule.assigned())
+        parentJsonValue["Value"]["DataDescriptor"]["Rule"] = propertyConverter.convertDataRuleToJsonObject(rule);
     SampleType sampleType = dataDescriptor.getSampleType();
         parentJsonValue["Value"]["DataDescriptor"]["SampleType"] = int(sampleType);
     UnitPtr unit = dataDescriptor.getUnit();
