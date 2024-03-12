@@ -61,6 +61,8 @@ void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& par
     DataRulePtr rule = dataDescriptor.getRule();
     if(rule.assigned())
         parentJsonValue["Value"]["DataDescriptor"]["Rule"] = propertyConverter.convertDataRuleToJsonObject(rule);
+    else
+        parentJsonValue["Value"]["DataDescriptor"]["Rule"] = Json::ValueType::nullValue;
     SampleType sampleType = dataDescriptor.getSampleType();
         parentJsonValue["Value"]["DataDescriptor"]["SampleType"] = int(sampleType);
     UnitPtr unit = dataDescriptor.getUnit();
@@ -74,6 +76,8 @@ void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& par
         parentJsonValue["Value"]["DataDescriptor"]["Unit"]["Quantity"] = unitQuantity;
         parentJsonValue["Value"]["DataDescriptor"]["Unit"]["DisplayName"] = unitSymbol;
     }
+    else
+        parentJsonValue["Value"]["DataDescriptor"]["Unit"] = Json::ValueType::nullValue;
     ScalingPtr postScaling = dataDescriptor.getPostScaling();
     if(postScaling.assigned()) { 
         SampleType postScalingInputSampleType = postScaling.getInputSampleType();;
@@ -81,9 +85,13 @@ void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& par
         parentJsonValue["Value"]["DataDescriptor"]["PostScaling"]["InputSampleType"] = int(postScalingInputSampleType);
         parentJsonValue["Value"]["DataDescriptor"]["PostScaling"]["OutputSampleType"] = int(postScalingOutputSampleType);
     }
+    else
+        parentJsonValue["Value"]["DataDescriptor"]["PostScaling"] = Json::ValueType::nullValue;
     StringPtr origin = dataDescriptor.getOrigin();
     if(origin.assigned())
         parentJsonValue["Value"]["DataDescriptor"]["Origin"] = toStdString(origin);
+    else
+        parentJsonValue["Value"]["DataDescriptor"]["Origin"] = Json::ValueType::nullValue;
     RatioPtr tickResolution = dataDescriptor.getTickResolution();
     if(tickResolution.assigned()) {
         int64_t numerator = tickResolution.getNumerator();
@@ -91,6 +99,8 @@ void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& par
         parentJsonValue["Value"]["DataDescriptor"]["TickResolution"]["Numerator"] = numerator;
         parentJsonValue["Value"]["DataDescriptor"]["TickResolution"]["Denominator"] = denominator;
     }
+    else
+        parentJsonValue["Value"]["DataDescriptor"]["TickResolution"] = Json::ValueType::nullValue;
     RangePtr valueRange = dataDescriptor.getValueRange();
     if(valueRange.assigned()) {
         double lowValue = valueRange.getLowValue();
@@ -98,6 +108,8 @@ void SignalConverter::appendSignalInfo(const SignalPtr& signal, Json::Value& par
         parentJsonValue["Value"]["DataDescriptor"]["ValueRange"]["Low"] = lowValue;
         parentJsonValue["Value"]["DataDescriptor"]["ValueRange"]["High"] = highValue;
     }
+    else
+        parentJsonValue["Value"]["DataDescriptor"]["ValueRange"] = Json::ValueType::nullValue;
 }
 
 END_NAMESPACE_JET_MODULE
