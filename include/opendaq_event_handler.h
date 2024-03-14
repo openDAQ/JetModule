@@ -43,8 +43,11 @@ public:
     void addProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
 
 private:
-    // Helper function
+    // Helper functions
     std::string extractPropertyName(const std::string& str);
+    std::vector<std::string> extractNestedPropertyNames(const std::string& objectPropertyPath);
+    template <typename PropertyType>
+    void setNestedPropertyValue(Json::Value& jetState, const std::vector<std::string>& nestedPropertyNames, const std::string& propertyName, const PropertyType& propertyValue);
 
     JetPeerWrapper& jetPeerWrapper;
     PropertyManager propertyManager;

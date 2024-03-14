@@ -42,6 +42,7 @@ public:
 protected:
     void createOpendaqCallback(const ComponentPtr& component);
     JetStateCallback createJetCallback();
+    JetStateCallback createObjectPropertyJetCallback();
 
     void appendProperties(const ComponentPtr& component, Json::Value& parentJsonValue);
 

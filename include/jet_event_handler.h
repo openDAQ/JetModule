@@ -37,9 +37,14 @@ public:
     void updateSimpleProperty(const ComponentPtr& component, const std::string& propertyName, const DataType& newPropertyValue);
     void updateListProperty(const ComponentPtr& component, const std::string& propertyName, const Json::Value& newJsonArray);
     void updateDictProperty(const ComponentPtr& component, const std::string& propertyName, const Json::Value& newJsonDict);
+    void updateObjectProperty(const ComponentPtr& component, const Json::Value& newJsonObject);
     void updateActiveStatus(const ComponentPtr& component, const Json::Value& newActiveStatus);
 
 private:
+    // Helper functions
+    std::vector<std::pair<std::string, Json::Value>> extractObjectPropertyPathsAndValues(const Json::Value& objectPropertyJetState);
+    void extractObjectPropertyPathsAndValuesInternal(const Json::Value& objectPropertyJetState, const std::string& path, std::vector<std::pair<std::string, Json::Value>>& pathAndValuePairs);
+
     JetPeerWrapper& jetPeerWrapper;
     PropertyConverter propertyConverter;
 
