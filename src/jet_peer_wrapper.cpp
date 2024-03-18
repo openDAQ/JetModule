@@ -238,6 +238,27 @@ std::string JetPeerWrapper::removeRootDeviceId(const std::string& path)
     return relativePath;
 }
 
+/**
+ * @brief Removes last string after '/' (slash) character from a Jet path string. It's used to remove ObjectProperty name from its Jet state path.
+ * This is needed to retrieve the component which owns the ObjectProperty.
+ * 
+ * @param path Path of the Jet state.
+ * @return Path of the Jet state with ObjectProperty name removed.
+ */
+std::string JetPeerWrapper::removeObjectPropertyName(const std::string& path)
+{
+    // Find the last occurrence of '/'
+    size_t lastSlashPos = path.rfind('/');
+
+    // If '/' is found, return the substring from the beginning up to the last '/'
+    // Otherwise, return the original string
+    if (lastSlashPos != std::string::npos) {
+        return path.substr(0, lastSlashPos);
+    } else {
+        return path;
+    }
+}
+
 void JetPeerWrapper::startJetEventloop()
 {
     if(!jetEventloopRunning) {

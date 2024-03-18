@@ -54,7 +54,9 @@ public:
     void updateJetState(const std::string& path, const Json::Value newValue);
     void modifyJetState(const char* valueType, const std::string& path, const char* newValue);
 
+    // Helper functions
     std::string removeRootDeviceId(const std::string& path);
+    std::string removeObjectPropertyName(const std::string& path);
 
 private:
     explicit JetPeerWrapper(); // Private constructor

@@ -51,7 +51,10 @@ void JetEventHandler::updateProperty(const ComponentPtr& component, const std::s
             logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
             break;
         case CoreType::ctObject:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            {
+                std::string message = "ObjectProperty must be represented as a separate state!\n";
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+            }
             break;
         case CoreType::ctProc:
             logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
@@ -105,6 +108,23 @@ void JetEventHandler::updateDictProperty(const ComponentPtr& component, const st
 }
 
 /**
+ * @brief Handles ObjectProperty (CoreType::ctObject) nested property value updates initiated by a Jet peer.
+ * 
+ * @param component Component who owns the ObjectProperty.
+ * @param newJsonObject New value of the whole ObjectProperty represented as a Json object.
+ */
+void JetEventHandler::updateObjectProperty(const ComponentPtr& component, const Json::Value& newJsonObject)
+{
+    // A vector of path&value pairs representing nested properties within ObjectProperty and their corresponding values
+    auto pathAndValuePairs = extractObjectPropertyPathsAndValues(newJsonObject);
+
+    // Updating nested property values
+    for(const auto& pair : pathAndValuePairs) {
+        updateProperty(component, pair.first, pair.second);
+    }
+}
+
+/**
  * @brief Addresses to "Active" status change initiated by a Jet peer.
  * 
  * @param component Component whose "Active" status is changed.
@@ -113,6 +133,46 @@ void JetEventHandler::updateDictProperty(const ComponentPtr& component, const st
 void JetEventHandler::updateActiveStatus(const ComponentPtr& component, const Json::Value& newActiveStatus)
 {
     component.setActive(newActiveStatus.asBool());
+}
+
+/**
+ * @brief Extracts property paths and corresponding value from ObjectProperty presented as Json object. To access nested properties within
+ * ObjectProperty, paths to the property must be provided. This function extracts all those paths to easy-up access to nested properties
+ * and change their values with more simplicity.
+ * 
+ * @param objectPropertyJetState Json representation of ObjectProperty (CoreType::ctObject).
+ * @return Vector of path & value pairs representing nested properties.
+ */
+std::vector<std::pair<std::string, Json::Value>> JetEventHandler::extractObjectPropertyPathsAndValues(const Json::Value& objectPropertyJetState)
+{
+    std::vector<std::pair<std::string, Json::Value>> pathAndValuePairs;
+    extractObjectPropertyPathsAndValuesInternal(objectPropertyJetState, "", pathAndValuePairs);
+    return pathAndValuePairs;
+}
+
+/**
+ * @brief Recursive function which extract path & value pairs from ObjectProperty presented in Json format.
+ * 
+ * @param objectPropertyJetState Json representation of ObjectProperty (CoreType::ctObject).
+ * @param path Path to the ObjectProperty/Array/Nested property - depends on the step in a recursive process.
+ * @param pathAndValuePairs Vector of path & value pairs representing nested properties. It is filled in this function.
+ */
+void JetEventHandler::extractObjectPropertyPathsAndValuesInternal(const Json::Value& objectPropertyJetState, const std::string& path, std::vector<std::pair<std::string, Json::Value>>& pathAndValuePairs)
+{
+    if(objectPropertyJetState.isObject()) {
+        for(const auto& key : objectPropertyJetState.getMemberNames()) {
+            std::string newPath = path.empty() ? key : path + "." + key;
+            extractObjectPropertyPathsAndValuesInternal(objectPropertyJetState[key], newPath, pathAndValuePairs);
+        }
+    }
+    else if(objectPropertyJetState.isArray()) {
+        for(Json::ArrayIndex i = 0; i < objectPropertyJetState.size(); ++i) {
+            extractObjectPropertyPathsAndValuesInternal(objectPropertyJetState[i], path, pathAndValuePairs);
+        }
+    }
+    else {
+        pathAndValuePairs.push_back({path, objectPropertyJetState});
+    }
 }
 
 END_NAMESPACE_JET_MODULE

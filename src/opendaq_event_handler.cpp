@@ -19,7 +19,14 @@ OpendaqEventHandler::OpendaqEventHandler() : jetPeerWrapper(JetPeerWrapper::getI
 void OpendaqEventHandler::updateProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
 {
     std::string propertyName = eventParameters.get("Name");
-    CoreType propertyType = component.getProperty(propertyName).getValueType();
+    std::string propertyPath = eventParameters.get("Path");
+
+    // Represents the property path taking its owner Component as a starting point
+    // This is needed when the property is nested under ObjectProperty (CoreType::ctObject)
+    std::string fullPath = propertyPath.empty() ? propertyName : propertyPath + "." + propertyName; 
+    
+    PropertyPtr property = component.getProperty(fullPath);
+    CoreType propertyType = property.getValueType();
 
     std::string message = "Update of property with CoreType " + propertyType + std::string(" is not supported currently.\n");
 
@@ -77,15 +84,31 @@ void OpendaqEventHandler::updateProperty(const ComponentPtr& component, const Di
 template <typename DataType>
 void OpendaqEventHandler::updateSimpleProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
 {
-    std::string path = component.getGlobalId();
-    Json::Value jetState = jetPeerWrapper.readJetState(path);
-
     std::string propertyName = eventParameters.get("Name");
-    DataType propertyValue = eventParameters.get("Value");
     std::string propertyPath = eventParameters.get("Path");
 
-    jetState[propertyPath + propertyName] = propertyValue;
-    jetPeerWrapper.updateJetState(path, jetState);
+    DataType propertyValue = eventParameters.get("Value");
+
+    bool isNestedProperty = propertyPath.empty();
+    std::string componentId = component.getGlobalId();
+    std::vector<std::string> nestedPropertyNames; // These are the names of ObjectProperties under which the property that has been updated is nested
+
+    std::string jetStatePath;
+    if(isNestedProperty)
+        jetStatePath = componentId;
+    else {
+        nestedPropertyNames = extractNestedPropertyNames(propertyPath);
+        jetStatePath = componentId + "/" + nestedPropertyNames[0]; // ObjectProperty (CoreType::ctObject) is reperesnted as a separate Jet state
+    }
+    Json::Value jetState = jetPeerWrapper.readJetState(jetStatePath); // Jet state before the change
+
+    if(isNestedProperty)
+        jetState[propertyName] = propertyValue;
+    else {
+        setNestedPropertyValue<DataType>(jetState, nestedPropertyNames, propertyName, propertyValue);
+    }
+
+    jetPeerWrapper.updateJetState(jetStatePath, jetState);
 }
 
 /**
@@ -96,18 +119,33 @@ void OpendaqEventHandler::updateSimpleProperty(const ComponentPtr& component, co
  */
 void OpendaqEventHandler::updateListProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
 {
-    std::string path = component.getGlobalId();
-    Json::Value jetState = jetPeerWrapper.readJetState(path);
-
     std::string propertyName = eventParameters.get("Name");
-    ListPtr<IBaseObject> propertyValue = eventParameters.get("Value");
     std::string propertyPath = eventParameters.get("Path");
 
+    ListPtr<IBaseObject> propertyValue = eventParameters.get("Value");
     CoreType listItemType = component.getProperty(propertyName).getItemType();
-    Json::Value newPropertyValue = propertyConverter.convertOpendaqListToJsonArray(propertyValue, listItemType);
+    Json::Value propertyValueJson = propertyConverter.convertOpendaqListToJsonArray(propertyValue, listItemType);
+    
+    bool isNestedProperty = propertyPath.empty();
+    std::string componentId = component.getGlobalId();
+    std::vector<std::string> nestedPropertyNames; // These are the names of ObjectProperties under which the property that has been updated is nested
 
-    jetState[propertyPath + propertyName] = newPropertyValue;
-    jetPeerWrapper.updateJetState(path, jetState);
+    std::string jetStatePath;
+    if(isNestedProperty)
+        jetStatePath = componentId;
+    else {
+        nestedPropertyNames = extractNestedPropertyNames(propertyPath);
+        jetStatePath = componentId + "/" + nestedPropertyNames[0]; // ObjectProperty (CoreType::ctObject) is reperesnted as a separate Jet state
+    }
+    Json::Value jetState = jetPeerWrapper.readJetState(jetStatePath); // Jet state before the change
+
+    if(isNestedProperty)
+        jetState[propertyName] = propertyValueJson;
+    else {
+        setNestedPropertyValue<Json::Value>(jetState, nestedPropertyNames, propertyName, propertyValueJson);
+    }
+
+    jetPeerWrapper.updateJetState(jetStatePath, jetState);
 }
 
 /**
@@ -118,18 +156,33 @@ void OpendaqEventHandler::updateListProperty(const ComponentPtr& component, cons
  */
 void OpendaqEventHandler::updateDictProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
 {
-    std::string path = component.getGlobalId();
-    Json::Value jetState = jetPeerWrapper.readJetState(path);
-
     std::string propertyName = eventParameters.get("Name");
-    DictPtr<IString, IBaseObject> propertyValue = eventParameters.get("Value");
     std::string propertyPath = eventParameters.get("Path");
 
+    DictPtr<IString, IBaseObject> propertyValue = eventParameters.get("Value");
     CoreType dictItemType = component.getProperty(propertyName).getItemType();
-    Json::Value newPropertyValue = propertyConverter.convertOpendaqDictToJsonDict(propertyValue, dictItemType);
+    Json::Value propertyValueJson = propertyConverter.convertOpendaqDictToJsonDict(propertyValue, dictItemType);
+    
+    bool isNestedProperty = propertyPath.empty();
+    std::string componentId = component.getGlobalId();
+    std::vector<std::string> nestedPropertyNames; // These are the names of ObjectProperties under which the property that has been updated is nested
 
-    jetState[propertyPath + propertyName] = newPropertyValue;
-    jetPeerWrapper.updateJetState(path, jetState);
+    std::string jetStatePath;
+    if(isNestedProperty)
+        jetStatePath = componentId;
+    else {
+        nestedPropertyNames = extractNestedPropertyNames(propertyPath);
+        jetStatePath = componentId + "/" + nestedPropertyNames[0]; // ObjectProperty (CoreType::ctObject) is reperesnted as a separate Jet state
+    }
+    Json::Value jetState = jetPeerWrapper.readJetState(jetStatePath); // Jet state before the change
+
+    if(isNestedProperty)
+        jetState[propertyName] = propertyValueJson;
+    else {
+        setNestedPropertyValue<Json::Value>(jetState, nestedPropertyNames, propertyName, propertyValueJson);
+    }
+
+    jetPeerWrapper.updateJetState(jetStatePath, jetState);
 }
 
 /**
@@ -193,6 +246,50 @@ std::string OpendaqEventHandler::extractPropertyName(const std::string& str)
     
     // Return an empty string to indicate that the format was not as expected
     return "";
+}
+
+/**
+ * @brief Returns vector of names under which the property is nested. Nested property is under of ObjectProperty(ies) (CoreType::ctObject).
+ * This function returns names of the ObjectProperty(ies).
+ * 
+ * @param objectPropertyPath Path of the property which is nested under ObjectProperty(ies) without including the name of the property. 
+ * Path is represented by ObjectProperty names separated with commas.
+ * @return std::vector<std::string> Vector of ObjectProperty names under which the property is nested.
+ */
+std::vector<std::string> OpendaqEventHandler::extractNestedPropertyNames(const std::string& objectPropertyPath)
+{
+    std::istringstream iss(objectPropertyPath);
+    std::string name;
+    std::vector<std::string> nestedPropertyNames;
+
+    while(std::getline(iss, name, '.')) {
+        nestedPropertyNames.emplace_back(name);
+    }
+
+    return nestedPropertyNames;
+}
+
+/**
+ * @brief Sets the property value which is nested under ObjectProperty(ies) (CoreType::ctObject).
+ * 
+ * @tparam PropertyType Type of the property which corresponds to types from Json::ValueType.
+ * @param jetState Jet state under which the property is located.
+ * @param nestedPropertyNames Names of the ObjectProperty(ies) under which the property is nested.
+ * @param propertyName Name of the Property.
+ * @param propertyValue Value of the property.
+ */
+template <typename PropertyType>
+void OpendaqEventHandler::setNestedPropertyValue(Json::Value& jetState, const std::vector<std::string>& nestedPropertyNames, const std::string& propertyName, const PropertyType& propertyValue)
+{
+    Json::Value* currentJsonVal = &jetState;
+    for(size_t i = 0; i < nestedPropertyNames.size(); ++i) {
+        if(i == nestedPropertyNames.size() - 1) { // Last element sets the value
+            (*currentJsonVal)[nestedPropertyNames[i]][propertyName] = propertyValue;
+        } 
+        else { // Intermediate elements navigate/create the structure
+            currentJsonVal = &((*currentJsonVal)[nestedPropertyNames[i]]);
+        }
+    }
 }
 
 END_NAMESPACE_JET_MODULE

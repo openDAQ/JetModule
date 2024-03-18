@@ -48,25 +48,34 @@ void ComponentConverter::createOpendaqCallback(const ComponentPtr& component)
 {
     component.getOnComponentCoreEvent() += [this](const ComponentPtr& comp, const CoreEventArgsPtr& args)
     {
+        std::string message = "Unknown change occured to component \"" + comp.getName() + "\"\n";
+
         DictPtr<IString, IBaseObject> eventParameters = args.getParameters();
-        if(eventParameters.hasKey("Name")) { // Property changed
-            opendaqEventHandler.updateProperty(comp, eventParameters);
-        }
-        else if(eventParameters.hasKey("Active")) { // Active status changed
-            opendaqEventHandler.updateActiveStatus(comp, eventParameters);
-        }
-        else if(eventParameters.hasKey("Property")) { // Property added
-            opendaqEventHandler.addProperty(comp, eventParameters);
-        }
-        else {
-            std::string message = "Unknown change occured to component \"" + comp.getName() + "\"\n";
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+        
+        CoreEventId eventId = CoreEventId(args.getEventId());
+        switch(eventId) {
+            case CoreEventId::PropertyValueChanged:
+                opendaqEventHandler.updateProperty(comp, eventParameters);
+                break;
+            case CoreEventId::AttributeChanged:
+                if(eventParameters.hasKey("Active")) // Active status changed
+                    opendaqEventHandler.updateActiveStatus(comp, eventParameters);
+                else
+                    logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+                break;
+            case CoreEventId::PropertyAdded:
+                opendaqEventHandler.addProperty(comp, eventParameters);
+                break;
+            default:
+                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+                break;
+            
         }
     };
 }
 
 /**
- * @brief Defines a callback function for a Jet state which will be called when some change occurs in that Jet state.
+ * @brief Defines a callback function for a Component Jet state which will be called when some change occurs in that Jet state.
  * 
  * @return JetStateCallback callback function which will be called during the change from Jet. It has to be passed to Jet state publisher.
  */
@@ -83,8 +92,6 @@ JetStateCallback ComponentConverter::createJetCallback()
             // We find component by searching relative to root device, so we have to remove its name from global ID of the component with provided path
             std::string relativePath = jetPeerWrapper.removeRootDeviceId(path);
             ComponentPtr component = opendaqInstance.findComponent(relativePath);
-
-            Json::Value jetState = jetPeerWrapper.readJetState(path);
 
             for (auto it = value.begin(); it != value.end(); ++it) {
                 std::string entryName = it.key().asString();
@@ -111,6 +118,37 @@ JetStateCallback ComponentConverter::createJetCallback()
 }
 
 /**
+ * @brief Defines a callback function for a ObjectProperty Jet state which will be called when some change occurs in that Jet state.
+ * 
+ * @return JetStateCallback callback function which will be called during the change from Jet. It has to be passed to Jet state publisher.
+ */
+JetStateCallback ComponentConverter::createObjectPropertyJetCallback()
+{
+    JetStateCallback callback = [this](const Json::Value& value, std::string path) -> Json::Value
+    {
+        std::string message = "Want to change state with path: " + path + " with the value " + value.toStyledString() + "\n";
+        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+        
+        // Actual work is done on a separate thread to handle simultaneous requests. Also, otherwise "jetset" tool would time out
+        std::thread([this, value, path]() 
+        {
+            // We find component by searching relative to root device, so we have to remove its name from global ID of the component with provided path
+            std::string relativePath = jetPeerWrapper.removeRootDeviceId(path);
+            relativePath = jetPeerWrapper.removeObjectPropertyName(relativePath); // We also have to remove ObjectProperty name (string after the last slash)
+            ComponentPtr component = opendaqInstance.findComponent(relativePath);
+
+            jetEventHandler.updateObjectProperty(component, value);
+
+        }).detach(); // detach is used to separate the thread of execution from the thread object, allowing execution to continue independently
+
+        return Json::Value(); // Return an empty Json as there's no need to return anything specific.
+        // TODO: Make sure that this is ok
+    };
+
+    return callback;
+}
+
+/**
  * @brief Parses a component to get its properties which are converted into Json representation in order to be published
  * in the component's Jet state.
  * 
@@ -123,7 +161,18 @@ void ComponentConverter::appendProperties(const ComponentPtr& component, Json::V
 
     auto properties = component.getAllProperties();
     for(auto property : properties) {
-        propertyManager.determinePropertyType<ComponentPtr>(component, property, parentJsonValue);
+        // ObjectProperty (CoreType::ctObject) has to be represented as a separate Jet state
+        if(property.getValueType() == CoreType::ctObject) {
+            Json::Value objectPropertyJetState;
+            propertyManager.determinePropertyType<ComponentPtr>(component, property, objectPropertyJetState);
+
+            std::string path = component.getGlobalId() + "/" + property.getName();
+            JetStateCallback jetStateCallback = createObjectPropertyJetCallback();
+            jetPeerWrapper.publishJetState(path, objectPropertyJetState, jetStateCallback);
+        }
+        else {
+            propertyManager.determinePropertyType<ComponentPtr>(component, property, parentJsonValue);
+        }
     }
 }
 
