@@ -18,6 +18,14 @@ JetEventHandler::JetEventHandler() : jetPeerWrapper(JetPeerWrapper::getInstance(
  */
 void JetEventHandler::updateProperty(const ComponentPtr& component, const std::string& propertyName, const Json::Value& newPropertyValue)
 {
+    PropertyPtr property = component.getProperty(propertyName);
+    bool isReadOnly = property.getReadOnly();
+    if(isReadOnly) {
+        std::string message = "Property \"" + propertyName + "\" is read-only. Its value cannot be changed! Skipping...\n";
+        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+        return;
+    }
+
     CoreType propertyType = component.getProperty(propertyName).getValueType();
 
     std::string message = "Update of property with CoreType " + propertyType + std::string(" is not supported currently.\n");
