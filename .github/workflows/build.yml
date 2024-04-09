@@ -21,3 +21,8 @@ jobs:
           cmake -DCOMPILE_REFERENCE_APPLICATION=OFF ..
       - name: Build JetModule
         run: cd build && make -j8
+      - name: Upload Shared Objects
+        uses: actions/upload-artifact@v2
+        with:
+          name: so-files
+          path: bin/*.so
