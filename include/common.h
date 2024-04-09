@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 #pragma once
-#include <coretypes/common.h>
 
-#define BEGIN_NAMESPACE_JET_MODULE BEGIN_NAMESPACE_OPENDAQ_MODULE(jet_module)
-#define END_NAMESPACE_JET_MODULE END_NAMESPACE_OPENDAQ_MODULE
+#define BEGIN_NAMESPACE_JET_MODULE \
+    namespace jet_module           \
+    {
+
+#define END_NAMESPACE_JET_MODULE \
+    }
+

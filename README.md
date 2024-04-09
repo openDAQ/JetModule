@@ -9,7 +9,7 @@ Jet module is an integration of Jet protocol with openDAQ SDK. It publishes devi
 - After a device has been instantiated, create `JetServer` object:
   
   ```c++
-  daq::modules::jet_module::JetServer jetServer = JetServer(opendaqInstance);
+  jet_module::JetServer jetServer = jet_module::JetServer(opendaqInstance);
   ```
 
 - Call `JetServer::publishJetStates()` to publish device structure as Jet states:

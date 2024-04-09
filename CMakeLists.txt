@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(JetModule 
-    VERSION 1.0.0 
-    DESCRIPTION "Library for using JetPeer alongside with openDAQ"
+project(JetModule
+    DESCRIPTION "Library for publishing openDAQ device structure as Jet states"
     LANGUAGES C CXX)
 
 ##### Variables

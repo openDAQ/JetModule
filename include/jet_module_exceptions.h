@@ -21,7 +21,7 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
-extern LoggerComponentPtr jetModuleLogger;
+extern daq::LoggerComponentPtr jetModuleLogger;
 
 enum JetModuleException : int
 {

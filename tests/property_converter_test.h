@@ -19,7 +19,7 @@
 #include "property_converter.h"
 
 using namespace daq;
-using namespace daq::modules::jet_module;
+using namespace jet_module;
 // using namespace hbk::jet;
 
 class PropertyConverterTest : public ::testing::Test {
