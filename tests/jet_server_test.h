@@ -29,7 +29,7 @@
 #define JET_GET_VALUE_TIMEOUT (1) // 1 second
 
 using namespace daq;
-using namespace daq::modules::jet_module;
+using namespace jet_module;
 using namespace hbk::jet;
 
 /**

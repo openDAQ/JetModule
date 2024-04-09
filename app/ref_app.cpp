@@ -3,7 +3,7 @@
 #include <iostream>
 
 using namespace daq;
-using namespace daq::modules::jet_module;
+using namespace jet_module;
 
 int main() {
 

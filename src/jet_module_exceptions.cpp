@@ -4,6 +4,8 @@
 
 BEGIN_NAMESPACE_JET_MODULE
 
+using namespace daq;
+
 LoggerComponentPtr jetModuleLogger = LoggerComponent("JetModule", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
 
 bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType)
