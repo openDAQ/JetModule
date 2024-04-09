@@ -21,8 +21,19 @@ jobs:
           cmake -DCOMPILE_REFERENCE_APPLICATION=OFF ..
       - name: Build JetModule
         run: cd build && make -j8
+      - name: Print some info
+        run: |
+          echo $PWD
+          ls -lh
       - name: Upload Shared Objects
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: so-files
-          path: bin/*.so
+          path: |
+            bin/*.so
+            tests/JetServerTest
+            tests/PropertyConverterTest
+  
+  # test-jet-module:
+  #   name: Test JetModule
+  #   runs-on: [ubuntu-latest-4-cores]
