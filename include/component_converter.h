@@ -59,7 +59,6 @@ protected:
     JetEventHandler jetEventHandler;
 
     InstancePtr opendaqInstance;
-    LoggerComponentPtr logger;
 private:
 };
 

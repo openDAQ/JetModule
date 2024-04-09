@@ -2,7 +2,9 @@
 #include <jet/defines.h>
 #include "jet_module_exceptions.h"
 
-using namespace daq;
+BEGIN_NAMESPACE_JET_MODULE
+
+LoggerComponentPtr jetModuleLogger = LoggerComponent("JetModule", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
 
 bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType)
 {
@@ -146,3 +148,5 @@ void throwJetModuleException(JetModuleException jmException, Json::ValueType jso
             break;
     }
 }
+
+END_NAMESPACE_JET_MODULE

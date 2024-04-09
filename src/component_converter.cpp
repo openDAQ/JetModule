@@ -1,13 +1,11 @@
 #include "component_converter.h"
+#include "jet_module_exceptions.h"
 #include <opendaq/logger_component_factory.h>
-
 BEGIN_NAMESPACE_JET_MODULE
 
 ComponentConverter::ComponentConverter(const InstancePtr& opendaqInstance) : jetPeerWrapper(JetPeerWrapper::getInstance())
 {
     this->opendaqInstance = opendaqInstance;
-    // initiate openDAQ logger
-    logger = LoggerComponent("ObjectConverterLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
 }
 
 /**
@@ -61,13 +59,13 @@ void ComponentConverter::createOpendaqCallback(const ComponentPtr& component)
                 if(eventParameters.hasKey("Active")) // Active status changed
                     opendaqEventHandler.updateActiveStatus(comp, eventParameters);
                 else
-                    logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+                    DAQLOG_W(jetModuleLogger, message.c_str());
                 break;
             case CoreEventId::PropertyAdded:
                 opendaqEventHandler.addProperty(comp, eventParameters);
                 break;
             default:
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+                DAQLOG_W(jetModuleLogger, message.c_str());
                 break;
             
         }
@@ -83,8 +81,8 @@ JetStateCallback ComponentConverter::createJetCallback()
 {
     JetStateCallback callback = [this](const Json::Value& value, std::string path) -> Json::Value
     {
-        std::string message = "Want to change state with path: " + path + " with the value " + value.toStyledString() + "\n";
-        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+        std::string message = "Want to change state with path: \"" + path + "\" with the value:\n" + value.toStyledString();
+        DAQLOG_I(jetModuleLogger, message.c_str());
         
         // Actual work is done on a separate thread to handle simultaneous requests. Also, otherwise "jetset" tool would time out
         std::thread([this, value, path]() 
@@ -126,8 +124,8 @@ JetStateCallback ComponentConverter::createObjectPropertyJetCallback()
 {
     JetStateCallback callback = [this](const Json::Value& value, std::string path) -> Json::Value
     {
-        std::string message = "Want to change state with path: " + path + " with the value " + value.toStyledString() + "\n";
-        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+        std::string message = "Want to change state with path: " + path + " with the value:\n" + value.toStyledString();
+        DAQLOG_I(jetModuleLogger, message.c_str());
         
         // Actual work is done on a separate thread to handle simultaneous requests. Also, otherwise "jetset" tool would time out
         std::thread([this, value, path]() 

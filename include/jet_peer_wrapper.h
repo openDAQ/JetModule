@@ -74,8 +74,6 @@ private:
     hbk::sys::EventLoop jetEventloop;
     bool jetEventloopRunning;
     std::thread jetEventloopThread;
-
-    LoggerComponentPtr logger;
 };
 
 END_NAMESPACE_JET_MODULE

@@ -6,8 +6,7 @@ BEGIN_NAMESPACE_JET_MODULE
 
 OpendaqEventHandler::OpendaqEventHandler() : jetPeerWrapper(JetPeerWrapper::getInstance())
 {
-    // initiate openDAQ logger
-    logger = LoggerComponent("OpendaqEventHandlerLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
+
 }
 
 /**
@@ -50,22 +49,22 @@ void OpendaqEventHandler::updateProperty(const ComponentPtr& component, const Di
             updateDictProperty(component, eventParameters);
             break;
         case CoreType::ctRatio:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            DAQLOG_W(jetModuleLogger, message.c_str());
             break;
         case CoreType::ctComplexNumber:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            DAQLOG_W(jetModuleLogger, message.c_str());
             break;
         case CoreType::ctStruct:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            DAQLOG_W(jetModuleLogger, message.c_str());
             break;
         case CoreType::ctObject:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            DAQLOG_W(jetModuleLogger, message.c_str());
             break;
         case CoreType::ctProc:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            DAQLOG_W(jetModuleLogger, message.c_str());
             break;
         case CoreType::ctFunc:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            DAQLOG_W(jetModuleLogger, message.c_str());
             break;
         default:
             break;
@@ -216,8 +215,9 @@ void OpendaqEventHandler::addProperty(const ComponentPtr& component, const DictP
     // Property name in eventParameters is in "Property {<property_name>}" format, so we have to extract the string between curly braces
     std::string propertyName = extractPropertyName(eventParameters.get("Property"));
     if(propertyName == "") {
-        std::string message = "Property has been to component \"" + component.getName() + "\" but could not extract property's name!\n";
-        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+        std::string message = "Property has been added to component \"" + component.getName() + "\" but could not extract property's name!\n";
+        DAQLOG_E(jetModuleLogger, message.c_str());
+        return;
     }
 
     PropertyPtr property = component.getProperty(propertyName);

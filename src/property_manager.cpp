@@ -5,8 +5,7 @@ BEGIN_NAMESPACE_JET_MODULE
 
 PropertyManager::PropertyManager() : jetPeerWrapper(JetPeerWrapper::getInstance())
 {
-    // initiate openDAQ logger
-    logger = LoggerComponent("PropertyManagerLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
+    
 }
 
 // TODO! arguments are not received from jet, need to find out why and fix

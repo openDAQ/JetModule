@@ -19,6 +19,7 @@
 #include <opendaq/device_impl.h>
 #include "property_converter.h"
 #include "jet_peer_wrapper.h"
+#include "jet_module_exceptions.h"
 
 using namespace daq;
 
@@ -59,7 +60,6 @@ public:
 private:
     PropertyConverter propertyConverter;
     JetPeerWrapper& jetPeerWrapper;
-    LoggerComponentPtr logger;
 };
 
 
@@ -134,9 +134,9 @@ void PropertyManager::determinePropertyType(const PropertyHolder& propertyHolder
         default:
             {
                 std::string message = "Unsupported value type of Property: " + propertyName + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+                DAQLOG_W(jetModuleLogger, message.c_str());
                 message = "\"std::string\" will be used to store property value.\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                DAQLOG_I(jetModuleLogger, message.c_str());
                 std::string propertyValue = propertyHolder.getPropertyValue(propertyName);
                 parentJsonValue[propertyName] = propertyValue;
             }
@@ -306,7 +306,7 @@ void PropertyManager::appendStructProperty(const PropertyHolderType& propertyHol
                         default:
                             {
                                 // std::string message = "Unsupported list item type: " + listItemType + '\n';
-                                // jetPeerWrapper.logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                                // jetPeerWrapper.jetModuleLogger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
                             }
                         break;
                     }
@@ -324,7 +324,7 @@ void PropertyManager::appendStructProperty(const PropertyHolderType& propertyHol
             default:
                 {
                     // std::string message = "Unsupported struct field type: " + structfieldType + '\n';
-                    // jetPeerWrapper.logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
+                    // jetPeerWrapper.jetModuleLogger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Info);
                 }
         }
     }
