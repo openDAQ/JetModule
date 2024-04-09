@@ -1,12 +1,12 @@
 #include "jet_event_handler.h"
+#include "jet_module_exceptions.h"
 #include <opendaq/logger_component_factory.h>
 
 BEGIN_NAMESPACE_JET_MODULE
 
 JetEventHandler::JetEventHandler() : jetPeerWrapper(JetPeerWrapper::getInstance())
 {
-    // initiate openDAQ logger
-    logger = LoggerComponent("JetEventHandlerLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
+
 }
 
 /**
@@ -21,14 +21,14 @@ void JetEventHandler::updateProperty(const ComponentPtr& component, const std::s
     PropertyPtr property = component.getProperty(propertyName);
     bool isReadOnly = property.getReadOnly();
     if(isReadOnly) {
-        std::string message = "Property \"" + propertyName + "\" is read-only. Its value cannot be changed! Skipping...\n";
-        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+        std::string message = "Property \"" + propertyName + "\" is read-only. Its value cannot be changed. Skipping.";
+        DAQLOG_W(jetModuleLogger, message.c_str());
         return;
     }
 
     CoreType propertyType = component.getProperty(propertyName).getValueType();
 
-    std::string message = "Update of property with CoreType " + propertyType + std::string(" is not supported currently.\n");
+    std::string unsupportedPropertyType = "Update of property with CoreType " + propertyType + std::string(" is currently unsupported. Skipping.");
 
     switch(propertyType) {
         case CoreType::ctBool:
@@ -50,27 +50,40 @@ void JetEventHandler::updateProperty(const ComponentPtr& component, const std::s
             updateDictProperty(component, propertyName, newPropertyValue);
             break;
         case CoreType::ctRatio:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            DAQLOG_W(jetModuleLogger, unsupportedPropertyType.c_str());
             break;
         case CoreType::ctComplexNumber:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            DAQLOG_W(jetModuleLogger, unsupportedPropertyType.c_str());
             break;
         case CoreType::ctStruct:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            {
+                // Struct is an immutable object in openDAQ and it cannot be modified.
+                std::string message = "\"" + propertyName + "\" is StructProperty and cannot be modified.";
+                DAQLOG_E(jetModuleLogger, message.c_str());
+            }
             break;
         case CoreType::ctObject:
             {
-                std::string message = "ObjectProperty must be represented as a separate state!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                // ObjectProperty is represented as a separate state. It has to be updated with "updateObjectProperty" function call.
+                // This function must not be called for updating ObjectProperty!
+                std::string message = "\"" + propertyName + "\" is ObjectProperty and has to be represented as a separate state.";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         case CoreType::ctProc:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            {
+                std::string message = "\"" + propertyName + "\" is FunctionProperty and cannot be modified.";
+                DAQLOG_E(jetModuleLogger, message.c_str());
+            }
             break;
         case CoreType::ctFunc:
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Warn);
+            {
+                std::string message = "\"" + propertyName + "\" is FunctionProperty and cannot be modified.";
+                DAQLOG_E(jetModuleLogger, message.c_str());
+            }
             break;
         default:
+            DAQLOG_W(jetModuleLogger, unsupportedPropertyType.c_str());
             break;
     }
 }

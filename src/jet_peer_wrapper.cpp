@@ -8,9 +8,6 @@ static hbk::sys::EventLoop jetStateReadEventloop;
 
 JetPeerWrapper::JetPeerWrapper()
 {
-    // initiate openDAQ logger
-    logger = LoggerComponent("JetPeerWrapperLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
-
     jetEventloopRunning = false; // TODO: This probably has to be removed
 
     startJetEventloopThread();
@@ -80,11 +77,11 @@ Json::Value JetPeerWrapper::readJetState(const std::string& path)
     // Making sure that size of the array of Json objects is exactly 1
     if(jetState.size() == 0) {
         std::string message = "Could not read Jet state with path: " + path + "\n";
-        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+        DAQLOG_E(jetModuleLogger, message.c_str());
     }
     else if(jetState.size() != 1) {
         std::string message = "There are multiple Jet states with path: " + path + "\n";
-        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+        DAQLOG_E(jetModuleLogger, message.c_str());
     }
 
     // We get the first Json object in the array and get its value afterwards (Json object comes with path&value pair, we only need value)
@@ -176,7 +173,7 @@ void JetPeerWrapper::modifyJetState(const char* valueType, const std::string& pa
         {
             std::string message = "Could not modify Jet state with path: " + path + "\n" + 
                 "invalid value for boolean expecting 'true'', or 'false'\n";
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+            DAQLOG_E(jetModuleLogger, message.c_str());
         }
     } 
     else if(strcmp(valueType,"int")==0) 
@@ -206,7 +203,7 @@ void JetPeerWrapper::modifyJetState(const char* valueType, const std::string& pa
         {
             std::string message = "Could not modify Jet state with path: " + path + "\n" + 
                 "error while parsing json!\n";
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+            DAQLOG_E(jetModuleLogger, message.c_str());
         }
     }
 }

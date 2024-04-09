@@ -1,12 +1,12 @@
 #include "property_converter.h"
+#include "jet_module_exceptions.h"
 #include <opendaq/logger_component_factory.h>
 
 BEGIN_NAMESPACE_JET_MODULE
 
 PropertyConverter::PropertyConverter()
 {
-    // initiate openDAQ logger
-    logger = LoggerComponent("PropertyConverterLogger", DefaultSinks(), LoggerThreadPool(), LogLevel::Default);
+
 }
 
 ListPtr<IBaseObject> PropertyConverter::convertJsonArrayToOpendaqList(const Json::Value& jsonArray)
@@ -23,8 +23,8 @@ ListPtr<IBaseObject> PropertyConverter::convertJsonArrayToOpendaqList(const Json
     {
         case Json::ValueType::nullValue:
             {
-                std::string message = "Null type element detected in the Json array!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Null type element detected in the Json array!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         case Json::ValueType::booleanValue:
@@ -60,21 +60,21 @@ ListPtr<IBaseObject> PropertyConverter::convertJsonArrayToOpendaqList(const Json
         case Json::ValueType::arrayValue:
             {
                 // TODO: Need to figure out whether nested list properties are supported in openDAQ
-                std::string message = "Nested list properties are not supported!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Nested list properties are not supported!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         case Json::ValueType::objectValue:
             {
                 // TODO: Need to figure out whether object or dict properties are supported in openDAQ under a list 
-                std::string message = "ObjectProperty nested under a list is not supported!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "ObjectProperty nested under a list is not supported!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         default:
             {
-                std::string message = "Unsupported array element type detected: " + arrayElementType + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Unsupported array element type detected: " + arrayElementType;
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
     }
 
@@ -99,8 +99,8 @@ DictPtr<IString, IBaseObject> PropertyConverter::convertJsonDictToOpendaqDict(co
     {
         case Json::ValueType::nullValue:
             {
-                std::string message = "Null type element detected in the dictionary!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Null type element detected in the dictionary!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         case Json::ValueType::booleanValue:
@@ -146,21 +146,21 @@ DictPtr<IString, IBaseObject> PropertyConverter::convertJsonDictToOpendaqDict(co
         case Json::ValueType::arrayValue:
             {
                 // TODO: Need to figure out whether list properties are supported in openDAQ under a dict
-                std::string message = "List properties nested under dictionaries is not supported!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "List properties nested under dictionaries is not supported!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         case Json::ValueType::objectValue:
             {
                 // TODO: Need to figure out whether object or dict properties are supported in openDAQ under a dict
-                std::string message = "ObjectProperty nested under dictionaries is not supported!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "ObjectProperty nested under dictionaries is not supported!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         default:
             {
-                std::string message = "Unsupported dictionary item type detected: " + dictItemType + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Unsupported dictionary item type detected: " + dictItemType;
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
 
     }    
@@ -203,14 +203,14 @@ PropertyObjectPtr PropertyConverter::convertJsonObjectToOpendaqObject(const Json
                     break;
                 case Json::ValueType::arrayValue:
                     {
-                        std::string message = "Lists nested under ObjectProperty is not supported!\n";
-                        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                        std::string message = "Lists nested under ObjectProperty is not supported!";
+                        DAQLOG_E(jetModuleLogger, message.c_str());
                     }
                     break;
                 default:
                     {
-                        std::string message = "Unsupported item type in an ObjectProperty detected!\n";
-                        logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                        std::string message = "Unsupported item type in an ObjectProperty detected!";
+                        DAQLOG_E(jetModuleLogger, message.c_str());
                     }
                     break;
             }
@@ -253,8 +253,8 @@ Json::Value PropertyConverter::convertOpendaqListToJsonArray(const ListPtr<IBase
             break;
         default:
             {
-                std::string message = "Unsupported list item type: " + listItemType + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Unsupported list item type: " + listItemType;
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
     }
@@ -286,20 +286,20 @@ Json::Value PropertyConverter::convertOpendaqDictToJsonDict(const DictPtr<IStrin
             break;
         case CoreType::ctRatio:
             {
-                std::string message = "RatioProperty nested under dictionaries is not supported!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "RatioProperty nested under dictionaries is not supported!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         case CoreType::ctComplexNumber:
             {
-                std::string message = "Complex numbers nested under dictionaries is not supported!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Complex numbers nested under dictionaries is not supported!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         default:
             {
-                std::string message = "Unsupported dictionary item type: " + dictItemType + '\n';
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Unsupported dictionary item type: " + dictItemType;
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
     }
@@ -333,8 +333,8 @@ Json::Value PropertyConverter::convertDataRuleToJsonObject(const DataRulePtr& da
                 dataRuleJson[std::string(keyList[i])] = std::string(valueList[i]);
                 break;
             default:
-                std::string message = "Parameter with unexpected type detected in DataRule!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Parameter with unexpected type detected in DataRule!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
                 break;
         }
     }
@@ -410,8 +410,8 @@ void PropertyConverter::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const J
     {
         case Json::ValueType::nullValue:
             {
-                std::string message = "Null argument type detected!\n";
-                logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+                std::string message = "Null argument type detected!";
+                DAQLOG_E(jetModuleLogger, message.c_str());
             }
             break;
         case Json::ValueType::intValue:
@@ -431,8 +431,8 @@ void PropertyConverter::convertJsonToDaqArguments(BaseObjectPtr& daqArg, const J
             break;
         default:
         {
-            std::string message = "Unsupported argument detected: " + jsonValueType + '\n';
-            logger.logMessage(SourceLocation{__FILE__, __LINE__, OPENDAQ_CURRENT_FUNCTION}, message.c_str(), LogLevel::Error);
+            std::string message = "Unsupported argument detected: " + jsonValueType;
+            DAQLOG_E(jetModuleLogger, message.c_str());
         }
     }
 }

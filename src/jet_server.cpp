@@ -78,7 +78,8 @@ void JetServer::parseOpendaqInstance(const FolderPtr& parentFolder)
             componentConverter.composeJetState(component);
         }
         else {
-            // throwJetModuleException(JM_UNSUPPORTED_ITEM);
+            std::string message = "Unhandled item \"" + item.getName() + "\" in openDAQ instance!";
+            DAQLOG_E(jetModuleLogger, message.c_str());
         }
 
         if(folder.assigned()) {

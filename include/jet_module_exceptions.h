@@ -14,8 +14,14 @@
  * limitations under the License.
  */
 #pragma once
+#include "common.h"
 #include <opendaq/device_impl.h>
 #include <json/value.h>
+#include <opendaq/logger_component_factory.h>
+
+BEGIN_NAMESPACE_JET_MODULE
+
+extern LoggerComponentPtr jetModuleLogger;
 
 enum JetModuleException : int
 {
@@ -29,3 +35,6 @@ bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValu
 void throwJetModuleException(JetModuleException jmException);
 void throwJetModuleException(JetModuleException jmException, std::string propertyName);
 void throwJetModuleException(JetModuleException jmException, Json::ValueType jsonValueType, std::string propertyName, std::string globalId);
+
+
+END_NAMESPACE_JET_MODULE

@@ -47,8 +47,6 @@ private:
 
     JetPeerWrapper& jetPeerWrapper;
     PropertyConverter propertyConverter;
-
-    LoggerComponentPtr logger;
 };
 
 END_NAMESPACE_JET_MODULE

@@ -46,8 +46,6 @@ private:
 
     template <typename DictItemType>
     Json::Value fillJsonDict_BasicType(const DictPtr<IString, IBaseObject>& opendaqDict);
-
-    LoggerComponentPtr logger;
 };
 
 END_NAMESPACE_JET_MODULE
