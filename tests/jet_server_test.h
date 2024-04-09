@@ -215,11 +215,21 @@ void JetServerTest::parseOpendaqInstance(const FolderPtr& parentFolder, std::vec
             globalIdVector.push_back(component.getGlobalId());
         }
         else {
-            // throwJetModuleException(JM_UNSUPPORTED_ITEM);
+            std::string message = "Unhandled item \"" + item.getName() + "\" in openDAQ instance!";
+            DAQLOG_E(jetModuleLogger, message.c_str());
         }
 
         if(folder.assigned()) {
             parseOpendaqInstance(folder, globalIdVector);
+        }
+        else {
+            // As ObjecProperty is represented as a separate state, we have to parse each component to find such properties.
+            auto properties = item.getAllProperties();
+            for(const auto& property : properties) {
+                if(property.getValueType() == CoreType::ctObject) {
+                    globalIdVector.push_back(item.getGlobalId() + "/" + property.getName());
+                }
+            }
         }
     }
 }
