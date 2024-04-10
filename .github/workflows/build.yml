@@ -1,4 +1,4 @@
-name: Build
+name: Build and Test
 
 on:
   pull_request:
@@ -50,6 +50,8 @@ jobs:
       - name: Print some info
         run: |
           echo $PWD
+          ls -lh
+          cd build
           ls -lh
       - name: Run JetServerTest
         run: ./build/tests/JetServerTest
