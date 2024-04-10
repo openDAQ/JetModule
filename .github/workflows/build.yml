@@ -53,6 +53,8 @@ jobs:
           ls -lh
           cd build
           ls -lh
+          cd bin
+          ls -lh
       - name: Run JetServerTest
         run: ./build/tests/JetServerTest
       - name: Run PropertyConverterTest
