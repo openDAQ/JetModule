@@ -18,7 +18,10 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake -DCOMPILE_REFERENCE_APPLICATION=OFF ..
+          cmake \
+          -DCOMPILE_REFERENCE_APPLICATION=OFF \
+          -DJET_MODULE_ENABLE_TESTS=ON \
+          ..
       - name: Build JetModule
         run: cd build && make -j8
       - name: Print some info
@@ -39,6 +42,18 @@ jobs:
     needs: build-jet-module
     runs-on: [ubuntu-latest-4-cores]
     steps:
+      - name: Clone gatzka/cjet
+        uses: actions/checkout@v3
+        with:
+          repository: gatzka/cjet
+          path: cjet
+      - name: Build and Install gatzka/cjet
+        run: |
+          cd cjet
+          mkdir -p build && cd build
+          cmake ..
+          make -j8
+          sudo make install
       - name: Download Shared Objects
         uses: actions/download-artifact@v4
         with:
