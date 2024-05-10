@@ -55,7 +55,7 @@ void PropertyManager::createJetMethod(const ComponentPtr& propertyPublisher, con
 
         }
         // Function with one argument
-        else if(args.isNumeric() || args.isBool() || args.isString() && numberOfArgs == 1) {
+        else if((args.isNumeric() || args.isBool() || args.isString()) && numberOfArgs == 1) {
             if(!hasCompatibleArgumentTypes(funcArgs[0].getType(), args))
                 return jetModuleExceptionToString(JetModuleException::JM_FUNCTION_INCOMPATIBLE_ARGUMENT_TYPES);
             
