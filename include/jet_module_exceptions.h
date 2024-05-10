@@ -28,13 +28,20 @@ enum JetModuleException : int
     JM_INCOMPATIBLE_TYPES = 0,
     JM_UNSUPPORTED_JSON_TYPE,
     JM_UNSUPPORTED_DAQ_TYPE,
-    JM_UNSUPPORTED_ITEM
+    JM_UNSUPPORTED_ITEM,
+    JM_FUNCTION_INCOMPATIBLE_ARGUMENT_TYPES,
+    JM_FUNCTION_INCORRECT_ARGUMENT_NUMBER,
+    JM_FUNCTION_UNSUPPORTED_ARGUMENT_TYPE,
+    JM_FUNCTION_UNSUPPORTED_ARGUMENT_FORMAT,
+    JM_FUNCTION_UNSUPPORTED_RETURN_TYPE,
+    JM_UNEXPECTED_TYPE
 };
 
 bool checkTypeCompatibility(Json::ValueType jsonValueType, daq::CoreType daqValueType);
 void throwJetModuleException(JetModuleException jmException);
 void throwJetModuleException(JetModuleException jmException, std::string propertyName);
 void throwJetModuleException(JetModuleException jmException, Json::ValueType jsonValueType, std::string propertyName, std::string globalId);
+std::string jetModuleExceptionToString(const JetModuleException& jmException);
 
 
 END_NAMESPACE_JET_MODULE

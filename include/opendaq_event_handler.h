@@ -38,6 +38,7 @@ public:
     void updateSimpleProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
     void updateListProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
     void updateDictProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
+    void updateFunctionProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
     void updateActiveStatus(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);
 
     void addProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters);

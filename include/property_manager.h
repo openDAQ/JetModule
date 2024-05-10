@@ -58,12 +58,18 @@ public:
     void createJetMethod(const ComponentPtr& propertyPublisher, const PropertyPtr& property);
 
 private:
+    BaseObjectPtr convertJsonValueToDaqValue(const Json::Value& jsonVal);
+    Json::Value convertDaqValueToJsonValue(const BaseObjectPtr& daqVal, const CoreType& coretype);
+    bool hasUnsupportedArgument(const CallableInfoPtr& callableInfo, const std::string& propertyName);
+    bool hasUnsupportedReturnType(const CoreType& returnType, const std::string& propertyName);
+    bool hasCompatibleArgumentTypes(CoreType daqType, const Json::Value& jsonVal);
+
     PropertyConverter propertyConverter;
     JetPeerWrapper& jetPeerWrapper;
 };
 
 
-//! Template functions definitions have to be in the header file so that derived classes are able to use them.
+//! Template function definitions have to be in the header file so that derived classes are able to use them.
 /* 
  * Unlike regular functions and methods, template definitions (including template member functions of a class) must be visible 
  * to a translation unit that uses them. This is because the compiler needs to instantiate the template with the specific type 

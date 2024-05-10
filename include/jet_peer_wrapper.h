@@ -49,6 +49,7 @@ public:
 
     void publishJetState(const std::string& path, const Json::Value& jetState, JetStateCallback callback);
     void publishJetMethod(const std::string& path, JetMethodCallback callback);
+    void removeJetMethod(const std::string& path);
     Json::Value readJetState(const std::string& path);
     Json::Value readAllJetStates();
     void updateJetState(const std::string& path, const Json::Value newValue);
