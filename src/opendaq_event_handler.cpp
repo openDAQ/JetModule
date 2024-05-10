@@ -27,7 +27,7 @@ void OpendaqEventHandler::updateProperty(const ComponentPtr& component, const Di
     PropertyPtr property = component.getProperty(fullPath);
     CoreType propertyType = property.getValueType();
 
-    std::string message = "Update of property with CoreType " + propertyType + std::string(" is not supported currently.\n");
+    std::string message = "Update of property with CoreType " + std::to_string(static_cast<int>(propertyType)) + " is not supported currently.\n";
 
     switch(propertyType) {
         case CoreType::ctBool:
@@ -61,10 +61,10 @@ void OpendaqEventHandler::updateProperty(const ComponentPtr& component, const Di
             DAQLOG_W(jetModuleLogger, message.c_str());
             break;
         case CoreType::ctProc:
-            DAQLOG_W(jetModuleLogger, message.c_str());
+            updateFunctionProperty(component, eventParameters);
             break;
         case CoreType::ctFunc:
-            DAQLOG_W(jetModuleLogger, message.c_str());
+            updateFunctionProperty(component, eventParameters);
             break;
         default:
             break;
@@ -182,6 +182,20 @@ void OpendaqEventHandler::updateDictProperty(const ComponentPtr& component, cons
     }
 
     jetPeerWrapper.updateJetState(jetStatePath, jetState);
+}
+
+/**
+ * @brief Update the value of callable property.
+ * 
+ * @param component A component which owns the callable property.
+ * @param eventParameters Dictionary filled with data describing the change.
+ */
+void OpendaqEventHandler::updateFunctionProperty(const ComponentPtr& component, const DictPtr<IString, IBaseObject>& eventParameters)
+{
+    std::string funcName = eventParameters.get("Name");
+    std::string funcPath = component.getGlobalId() + "/" + funcName;
+    jetPeerWrapper.removeJetMethod(funcPath);
+    propertyManager.createJetMethod(component, component.getProperty(funcName));
 }
 
 /**

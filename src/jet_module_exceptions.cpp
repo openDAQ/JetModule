@@ -151,4 +151,26 @@ void throwJetModuleException(JetModuleException jmException, Json::ValueType jso
     }
 }
 
+std::string jetModuleExceptionToString(const JetModuleException& jmException)
+{
+    std::string message = "Error: ";
+    switch(jmException)
+    {
+        case JetModuleException::JM_UNEXPECTED_TYPE:
+            return (message + "Unexpected type detected.");
+        case JetModuleException::JM_FUNCTION_INCOMPATIBLE_ARGUMENT_TYPES:
+            return (message + "Incompatible function argument types detected.");
+        case JetModuleException::JM_FUNCTION_INCORRECT_ARGUMENT_NUMBER:
+            return (message + "Incorrect number of arguments has been provided.");
+        case JetModuleException::JM_FUNCTION_UNSUPPORTED_ARGUMENT_TYPE:
+            return (message + "Function is defined with an argument type which is not supported.");
+        case JetModuleException::JM_FUNCTION_UNSUPPORTED_ARGUMENT_FORMAT:
+            return (message + "Arguments to the function have been provided in unsupported format.");
+        case JetModuleException::JM_FUNCTION_UNSUPPORTED_RETURN_TYPE:
+            return (message + "Function is defined with a return type which is not supported.");
+        default:
+            return (message + "General error.");
+    }
+}
+
 END_NAMESPACE_JET_MODULE

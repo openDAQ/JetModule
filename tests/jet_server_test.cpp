@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include "jet_server_test.h"
+#include <coreobjects/argument_info_factory.h>
+#include <coreobjects/callable_info_factory.h>
 
 // Checks whether all of the required Jet states are present
 TEST_F(JetServerTest, CheckStatePresence)
@@ -203,4 +205,123 @@ TEST_F(JetServerTest, TestDictProperty)
     valueInJet = propertyConverter.convertJsonDictToOpendaqDict(getPropertyValueInJetTimeout(propertyName, dictJson));
     valueInOpendaq = rootDevice.getPropertyValue(propertyName);
     EXPECT_EQ(valueInJet, valueInOpendaq);
+}
+
+TEST_F(JetServerTest, TestFunctionPropertyProcedure)
+{
+    hbk::jet::Peer callingPeer(hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0, "callingPeer");
+    double timeout = 50; // 50ms
+
+    int testVar = 0;
+
+
+    // Procedure with no argument
+    std::string propName = "TestProcNoArg";
+    const auto procPropertyNoArg = FunctionProperty(propName, ProcedureInfo());
+    rootDevice.addProperty(procPropertyNoArg);
+    rootDevice.setPropertyValue(propName, Procedure([&testVar] () { testVar = 10; }));
+
+    std::string path = rootDevicePath + "/" + propName;
+    Json::Value result = callingPeer.callMethod(path, Json::Value(), timeout);
+    ASSERT_EQ(testVar, 10);
+
+    // Procedure with single argument
+    propName = "TestProcSingleArg";
+    const auto procPropertySingleArg = FunctionProperty(propName, ProcedureInfo(List<IArgumentInfo>(ArgumentInfo("arg", CoreType::ctInt))));
+    rootDevice.addProperty(procPropertySingleArg);
+    rootDevice.setPropertyValue(propName, Procedure([&testVar] (int arg) { testVar = arg; }));
+
+    path = rootDevicePath + "/" + propName;
+    result = callingPeer.callMethod(path, 20, timeout);
+    ASSERT_EQ(testVar, 20);
+
+
+    // Procedure with single argument provided as a list
+    propName = "TestProcSingleArgAsList";
+    const auto procPropertySingleArgAsList = FunctionProperty(propName, ProcedureInfo(List<IArgumentInfo>(ArgumentInfo("arg", CoreType::ctInt))));
+    rootDevice.addProperty(procPropertySingleArgAsList);
+    rootDevice.setPropertyValue(propName, Procedure([&testVar] (int arg) { testVar = arg; }));
+
+    path = rootDevicePath + "/" + propName;
+    Json::Value jsonArray;
+    jsonArray.append(30);
+    result = callingPeer.callMethod(path, jsonArray, timeout);
+    ASSERT_EQ(testVar, 30);
+    
+
+    // Procedure with multiple arguments of different types
+    propName = "TestProcMultipleArg";
+    const auto procPropertyMultipleArg = FunctionProperty(propName, ProcedureInfo(List<IArgumentInfo>(ArgumentInfo("arg1", CoreType::ctInt),
+                                                                                                    ArgumentInfo("arg2", CoreType::ctFloat),
+                                                                                                    ArgumentInfo("arg3", CoreType::ctBool),
+                                                                                                    ArgumentInfo("arg4", CoreType::ctString))));
+    rootDevice.addProperty(procPropertyMultipleArg);
+    rootDevice.setPropertyValue(propName, Procedure([&testVar] (int arg1, double arg2, bool arg3, std::string arg4) { testVar = arg1; }));
+
+    path = rootDevicePath + "/" + propName;
+    jsonArray.clear();
+    jsonArray.append(40);
+    jsonArray.append(420.69);
+    jsonArray.append(true);
+    jsonArray.append("Georgia");
+    result = callingPeer.callMethod(path, jsonArray, timeout);
+    ASSERT_EQ(testVar, 40);
+}
+
+TEST_F(JetServerTest, TestFunctionPropertyFunction)
+{
+    hbk::jet::Peer callingPeer(hbk::jet::JET_UNIX_DOMAIN_SOCKET_NAME, 0, "callingPeer");
+    double timeout = 50; // 50ms
+
+
+    // Function with no argument
+    std::string propName = "TestFuncNoArg";
+    const auto procPropertyNoArg = FunctionProperty(propName, FunctionInfo(CoreType::ctInt));
+    rootDevice.addProperty(procPropertyNoArg);
+    rootDevice.setPropertyValue(propName, Function([] () { return 42; }));
+
+    std::string path = rootDevicePath + "/" + propName;
+    Json::Value result = callingPeer.callMethod(path, Json::Value(), timeout);
+    ASSERT_EQ(result.asInt(), 42);
+
+
+    // Function with single argument
+    propName = "TestFuncSingleArg";
+    const auto procPropertySingleArg = FunctionProperty(propName, FunctionInfo(CoreType::ctInt, List<IArgumentInfo>(ArgumentInfo("arg", CoreType::ctInt))));
+    rootDevice.addProperty(procPropertySingleArg);
+    rootDevice.setPropertyValue(propName, Function([] (int arg) { return arg; }));
+
+    path = rootDevicePath + "/" + propName;
+    result = callingPeer.callMethod(path, 69, timeout);
+    ASSERT_EQ(result.asInt(), 69);
+
+
+    // Function with single argument provided as a list
+    propName = "TestFuncSingleArgAsList";
+    const auto procPropertySingleArgAsList = FunctionProperty(propName, FunctionInfo(CoreType::ctInt, List<IArgumentInfo>(ArgumentInfo("arg", CoreType::ctInt))));
+    rootDevice.addProperty(procPropertySingleArgAsList);
+    rootDevice.setPropertyValue(propName, Function([] (int arg) { return arg; }));
+
+    path = rootDevicePath + "/" + propName;
+    Json::Value jsonArray;
+    jsonArray.append(420);
+    result = callingPeer.callMethod(path, jsonArray, timeout);
+    ASSERT_EQ(result.asInt(), 420);
+
+
+    // Function with multiple arguments
+    propName = "TestFuncMultipleArg";
+    const auto procPropertyMultipleArg = FunctionProperty(propName, FunctionInfo(CoreType::ctFloat, List<IArgumentInfo>(ArgumentInfo("arg1", CoreType::ctFloat),
+                                                                                                                    ArgumentInfo("arg2", CoreType::ctFloat),
+                                                                                                                    ArgumentInfo("arg3", CoreType::ctFloat))));
+    rootDevice.addProperty(procPropertyMultipleArg);
+    rootDevice.setPropertyValue(propName, Function([] (double arg1, double arg2, double arg3) { return (arg1+arg2+arg3)/3; }));
+
+    path = rootDevicePath + "/" + propName;
+    jsonArray.clear();
+    jsonArray.append(10);
+    jsonArray.append(20);
+    jsonArray.append(30);
+    result = callingPeer.callMethod(path, jsonArray, timeout);
+    ASSERT_EQ(result.asInt(), 20);
 }

@@ -44,6 +44,16 @@ void JetPeerWrapper::publishJetMethod(const std::string& path, JetMethodCallback
 }
 
 /**
+ * @brief Removes a Jet method from the specified path.
+ * 
+ * @param path Path of the existing Jet method.
+ */
+void JetPeerWrapper::removeJetMethod(const std::string& path)
+{
+    jetPeer->removeMethodAsync(path);
+}
+
+/**
  * @brief Reads a Jet state with specified path into a Json object.
  * 
  * @param path Path of the Jet state which is read.
